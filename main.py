@@ -1,12 +1,13 @@
 import discord
 from discord import option
+from discord.ext import commands
 from discord.ext.commands import has_permissions
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 TOKEN = os.getenv('TOKEN')
-bot = discord.Bot()
+bot = commands.Bot()
 
 @bot.event
 async def on_ready():
@@ -33,7 +34,7 @@ async def create_channels_error(ctx, err):
     await ctx.respond(f'{err}')
 
 #Command to delete all the channels in the current category (the one the command is typed in)
-@bot.command(name='delete_channels', description='WARNING! Deletes all text channels in the current category!')
+@bot.slash_command(name='delete_channels', description='WARNING! Deletes all text channels in the current category!')
 @has_permissions(administrator=True)
 async def delete_channels(ctx):
     channel = ctx.channel
@@ -44,6 +45,19 @@ async def delete_channels(ctx):
 
 @delete_channels.error
 async def delete_channels_error(ctx, err):
+    await ctx.respond(f'{err}')
+
+@bot.slash_command(name='purge', description='Deletes the x last messages (max 100)')
+@option('x', description='Number of messages to delete')
+@has_permissions(administrator=True)
+async def purge(ctx, x:int):
+    channel = ctx.channel
+    await ctx.respond(f'Got it! Deleting the {x} last messages in this channel')
+    async for message in channel.history(limit=min(x + 1, 100)):
+        await message.delete()
+
+@purge.error
+async def purge_error(ctx, err):
     await ctx.respond(f'{err}')
 
 bot.run(TOKEN)
