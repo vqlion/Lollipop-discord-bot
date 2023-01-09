@@ -1,4 +1,5 @@
 import discord
+import wavelink
 from discord import option
 from discord.ext import commands
 from discord.ext.commands import has_permissions
@@ -12,6 +13,11 @@ bot = commands.Bot()
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user} :D') #Bot Name
+    await connect_nodes()
+
+@bot.event
+async def on_wavelink_node_ready(node: wavelink.Node):
+  print(f"{node.identifier} is ready.")
 
 #Command to create text channels for x groups and y subgroups in a new category
 @bot.slash_command(name='create_channels', description="Creates y channels, x times. Names them iteratively.")
@@ -59,5 +65,34 @@ async def purge(ctx, x:int):
 @purge.error
 async def purge_error(ctx, err):
     await ctx.respond(f'{err}')
+
+async def connect_nodes():
+  """Connect to our Lavalink nodes."""
+  await bot.wait_until_ready()
+
+  await wavelink.NodePool.create_node(
+    bot=bot,
+    host='127.0.0.1',
+    port=2333,
+    password='youshallnotpass'
+  )
+
+@bot.slash_command(name="play")
+async def play(ctx, search: str):
+  vc = ctx.voice_client 
+
+  if not vc: # check if the bot is not in a voice channel
+    vc = await ctx.author.voice.channel.connect(cls=wavelink.Player) 
+
+  if ctx.author.voice.channel.id != vc.channel.id: # check if the bot is not in the voice channel
+    return await ctx.respond("You must be in the same voice channel as the bot.") 
+
+  song = await wavelink.YouTubeTrack.search(query=search, return_first=True) 
+
+  if not song: # check if the song is not found
+    return await ctx.respond("No song found.") 
+
+  await vc.play(song) # play the song
+  await ctx.respond(f"Now playing: `{vc.source.title}`") 
 
 bot.run(TOKEN)
