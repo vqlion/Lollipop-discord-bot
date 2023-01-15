@@ -16,7 +16,7 @@ class Utils(commands.Cog):
             await message.delete()
 
     @purge.error
-    async def purge_error(ctx, err):
+    async def purge_error(self,ctx, err):
         await ctx.respond(f'{err}')
 
 def setup(bot):

@@ -1,6 +1,7 @@
 from discord import option
 from discord.ext import commands
 from discord.ext.commands import has_permissions
+from operator import attrgetter
 
 class Channels(commands.Cog):
     def __init__(self, bot):
@@ -23,7 +24,7 @@ class Channels(commands.Cog):
                 await guild.create_text_channel(f"{channel_syntax}{i}-{j}", category=category)
 
     @create_channels.error
-    async def create_channels_error(ctx, err):
+    async def create_channels_error(self, ctx, err):
         await ctx.respond(f'{err}')
 
     #Command to delete all the channels in the current category (the one the command is typed in)
@@ -37,8 +38,25 @@ class Channels(commands.Cog):
         await category.delete()
 
     @delete_channels.error
-    async def delete_channels_error(ctx, err):
+    async def delete_channels_error(self, ctx, err):
         await ctx.respond(f'{err}')
+
+    @commands.slash_command(name='order_channels', description='Alphabetically orders the channels in the current category')    
+    @has_permissions(administrator=True)
+    async def order_channels(self, ctx):
+        channel = ctx.channel
+        category = channel.category
+        if(category == None): return
+        x = 0
+        await ctx.respond('Got it! Ordering the channels in this category')
+        for channel in sorted(category.text_channels, key=attrgetter('name')):
+            await channel.edit(position=x)
+            x += 1
+
+    @order_channels.error
+    async def order_channels_error(self, ctx, err):
+        await ctx.respond(f'{err}')
+            
 
 def setup(bot):
     bot.add_cog(Channels(bot))
