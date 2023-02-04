@@ -31,5 +31,7 @@ async def connect_nodes():
   )
 
 bot.load_extension("cogs.music")
+bot.load_extension("cogs.channels")
+bot.load_extension("cogs.utils")
 
 bot.run(TOKEN)
