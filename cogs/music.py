@@ -27,5 +27,46 @@ class Music(commands.Cog):
         await vc.play(song) # play the song
         await ctx.respond(f"Now playing: `{vc.source.title}`") 
 
+    @commands.slash_command(name="pause", description='Pauses the current song')
+    async def pause(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("The bot is not in a voice chat.")
+
+        if ctx.author.voice.channel.id != vc.channel.id: # check if the bot is not in the voice channel
+            return await ctx.respond("You must be in the same voice channel as the bot.") 
+
+        await vc.pause()
+        await ctx.respond('Paused the song')
+
+    @commands.slash_command(name="resume", description='Resumes the current song')
+    async def resume(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("The bot is not in a voice chat.")
+
+        if ctx.author.voice.channel.id != vc.channel.id: # check if the bot is not in the voice channel
+            return await ctx.respond("You must be in the same voice channel as the bot.") 
+
+        await vc.resume()
+        await ctx.respond('Resumed the song')
+
+    @commands.slash_command(name="stop", description='Stops the current song and disconnects the bot from the channel')
+    async def resume(self, ctx):
+        vc = ctx.voice_client
+
+        if not vc:
+            return await ctx.respond("The bot is not in a voice chat.")
+
+        if ctx.author.voice.channel.id != vc.channel.id: # check if the bot is not in the voice channel
+            return await ctx.respond("You must be in the same voice channel as the bot.") 
+
+        await vc.stop()
+        await vc.disconnect()
+        await ctx.respond('Stopped the music')
+        
+
 def setup(bot):
     bot.add_cog(Music(bot))
