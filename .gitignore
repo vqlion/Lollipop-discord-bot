@@ -1,5 +1,4 @@
 **/.env
-
-**/lavalink
-
+lavalink/
 __pycache__/
+env/
