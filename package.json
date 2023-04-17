@@ -1,0 +1,19 @@
+{
+  "name": "lollipop",
+  "version": "1.0.0",
+  "description": "Lollipop discord bot.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "vql",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/opus": "github:discordjs/opus",
+    "@discordjs/voice": "^0.16.0",
+    "discord.js": "^14.9.0",
+    "ffmpeg-static": "^5.1.0",
+    "libsodium-wrappers": "^0.7.11",
+    "play-dl": "^1.9.6"
+  }
+}
