@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField } = require("discord.js");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -9,8 +9,10 @@ module.exports = {
                 .setName("number")
                 .setDescription("The number of messages to delete")
                 .setRequired(true)
-        ),
+        )
+        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     async execute(interaction) {
+        if (!(interaction.member.permissions.has(PermissionsBitField.Flags.Administrator))) return interaction.reply("You do not have permission to run this command.")
         const number = interaction.options.getInteger("number");
         const channel = interaction.channel;
         await interaction.reply(`Ok, deleting the ${number} last messages.`);

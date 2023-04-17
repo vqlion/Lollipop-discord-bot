@@ -79,7 +79,6 @@ module.exports = {
             await interaction.editReply(
                 `Put \`${title}\` in the queue. It is currently at position \`${resourceList[guildId].length}\`.`
             );
-            console.log("resource list length: ", resourceList[guildId].length);
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\``);
             resetResourceList(guildId);
@@ -104,9 +103,6 @@ module.exports = {
         });
 
         player.addListener("stateChange", (oldState, newState) => {
-            console.log(
-                `Old state: ${oldState.status}, new state: ${newState.status}`
-            );
             if (
                 nextResourceIsAvailable &&
                 newState.status == AudioPlayerStatus.Idle &&
