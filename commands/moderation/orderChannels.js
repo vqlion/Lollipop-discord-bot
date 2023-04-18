@@ -16,10 +16,8 @@ module.exports = {
 
         channelsInCategory.sort((channel1, channel2) => (channel1.name > channel2.name) ? 1 : (channel1.name < channel2.name) ? -1 : 0);
         let index = 0;
-        console.log(channelsInCategory.length)
         channelsInCategory.forEach((channel) => {
             channel.setPosition(index).then().catch(console.error);
-            console.log(`${channel.name}, ${index}`)
             index++;
         })
 
