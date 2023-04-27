@@ -6,7 +6,8 @@ module.exports = {
     async execute(message) {
         const messageContent = message.content;
         const guildId = message.guildId;
-        if (!messageContent.includes("quoi") || !(special_guilds.includes(guildId))) return;
+        const normalizedMessageContent = messageContent.normalize('NFD').replace(/\p{Diacritic}/gu, "").toLowerCase()
+        if (!normalizedMessageContent.includes("quoi") || !(special_guilds.includes(guildId))) return;
         message.reply("feur")
             .then()
             .catch(console.error);
