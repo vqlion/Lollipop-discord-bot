@@ -61,6 +61,16 @@ module.exports = {
             url = yt_info[0].url;
             title = yt_info[0].title;
         }
+        
+        if (isPlaylistUrl(request)) {
+            var playlist_info = await playdl.playlist_info(request);
+            var videos_info = await playlist_info.all_videos();
+            url = videos_info[0].url;
+            title = videos_info[0].title;
+            videos_info.shift();
+            pushPlayListToSongList(videos_info, guildId);
+        }
+
         var stream = await playdl.stream(url);
 
         const resource = createAudioResource(stream.stream, {
@@ -124,6 +134,28 @@ function isValidHttpUrl(string) {
         return false;
     }
     return url.protocol === "http:" || url.protocol === "https:";
+}
+
+function isPlaylistUrl(string) {
+    return isValidHttpUrl(string) && string.includes("playlist");
+}
+
+async function pushPlayListToSongList(songList, guildId) {
+    
+    for (entry in songList) {
+        var url = songList[entry].url;
+        var title = songList[entry].title;
+
+        var stream = await playdl.stream(url);
+        console.log(stream);
+
+        const resource = createAudioResource(stream.stream, {
+            inputType: stream.type,
+        });
+
+        pushNewResource(resource, guildId);
+        pushNewSongName(title, guildId);
+    }
 }
 
 function pushNewResource(resource, guildId) {
