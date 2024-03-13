@@ -219,6 +219,12 @@ async function getSongTitleFromURL(url) {
     var id = url.substring(
         url.indexOf("?v=") + 3
     );
+    if (url.includes("&ab_channel")) {
+        id = url.substring(
+            url.indexOf("?v=") + 3,
+            url.lastIndexOf("&")
+        );
+    }
     var songTitle;
     try {
         const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${id}&key=${youtube_api_key}`);
