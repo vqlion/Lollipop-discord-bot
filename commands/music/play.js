@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
 const playdl = require("play-dl");
+const axios = require('axios').default;
 const {
     joinVoiceChannel,
     createAudioPlayer,
@@ -9,6 +10,7 @@ const {
     AudioPlayerStatus,
 } = require("@discordjs/voice");
 const fs = require("fs");
+const { youtube_api_key } = require('../../config.json')
 
 let resourceList = new Object();
 let songNamesList = new Object();
@@ -29,6 +31,8 @@ module.exports = {
         const channel = interaction.member.voice.channel;
         const request = interaction.options.getString("song");
         const guildId = interaction.guildId;
+
+        var currentTitle = '';
 
         if (!channel) {
             return interaction.editReply(
@@ -60,6 +64,8 @@ module.exports = {
             var yt_info = await playdl.search(request, { limit: 1 });
             url = yt_info[0].url;
             title = yt_info[0].title;
+        } else {
+            title = await getSongTitleFromURL(url);
         }
         
         if (isPlaylistUrl(request)) {
@@ -119,8 +125,9 @@ module.exports = {
                 oldState.status == AudioPlayerStatus.Playing
             ) {
                 startNextResourceTimer();
-                var nextResource = getNextResource(guildId);
+                var nextResource, nextResourceTitle = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
+                currentTitle = nextResourceTitle;
             }
         });
     },
@@ -179,9 +186,9 @@ function pushNewSongName(song, guildId) {
 
 function getNextResource(guildId) {
     var res = resourceList[guildId].shift();
-    songNamesList[guildId].shift();
+    var resTitle = songNamesList[guildId].shift();
     dumpSongListToJsonFile();
-    return res;
+    return res, resTitle;
 }
 
 function resetResourceList(guildId) {
@@ -206,4 +213,20 @@ function dumpSongListToJsonFile() {
             if (err) throw err;
         }
     );
+}
+
+async function getSongTitleFromURL(url) {
+    var id = url.substring(
+        url.indexOf("?v=") + 3
+    );
+    var songTitle;
+    try {
+        const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${id}&key=${youtube_api_key}`);
+        // console.log(response["data"]["items"][0]["snippet"]["title"]);
+        songTitle = response["data"]["items"][0]["snippet"]["title"];
+      } catch (error) {
+        console.error(error);
+      }
+    
+    return songTitle;
 }

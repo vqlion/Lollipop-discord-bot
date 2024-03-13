@@ -18,6 +18,7 @@
   "dependencies": {
     "@discordjs/opus": "github:discordjs/opus",
     "@discordjs/voice": "^0.16.0",
+    "axios": "^1.6.7",
     "discord.js": "^14.9.0",
     "ffmpeg-static": "^5.1.0",
     "libsodium-wrappers": "^0.7.11",

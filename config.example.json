@@ -1,0 +1,7 @@
+{
+    "token": "<YOUR_TOKEN>",
+    "clientId": "<YOUR_CLIENT_ID>",
+    "special_guilds": [],
+    "youtube_api_key": "<YOUR_API_KEY>"
+
+}
