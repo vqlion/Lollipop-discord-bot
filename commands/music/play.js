@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, ChannelType, PermissionsBitField } = require("discord.js");
 const playdl = require("play-dl");
 const axios = require('axios').default;
 const {
@@ -31,6 +31,38 @@ module.exports = {
         const channel = interaction.member.voice.channel;
         const request = interaction.options.getString("song");
         const guildId = interaction.guildId;
+        const channelList = Array.from(interaction.guild.channels.cache.values());
+        var statusChannel;
+
+        var foundStatusChannel = false;
+
+        for (i = 0; i < channelList.length; i++) {
+            if (channelList[i].type != ChannelType.GuildVoice) continue;
+            if (channelList[i].name.includes("Lollipop")) {
+                statusChannel = channelList[i];
+                foundStatusChannel = true;
+                break;
+            }
+        }
+
+        if (!foundStatusChannel) {
+            interaction.guild.channels.create({
+                name: "Lollipop",
+                type: ChannelType.GuildVoice,
+            }).then((chan) => {
+                statusChannel = chan;
+                chan.permissionOverwrites.set([
+                    {
+                        id: interaction.guild.roles.everyone,
+                        deny: [PermissionsBitField.Flags.Connect],
+                    },
+                
+                ]);
+            }).catch(console.error);
+        }
+
+        console.log(statusChannel);
+
 
         var currentTitle = '';
 
@@ -67,7 +99,7 @@ module.exports = {
         } else {
             title = await getSongTitleFromURL(url);
         }
-        
+
         if (isPlaylistUrl(request)) {
             var playlist_info = await playdl.playlist_info(request);
             var videos_info = await playlist_info.all_videos();
@@ -148,7 +180,7 @@ function isPlaylistUrl(string) {
 }
 
 async function pushPlayListToSongList(songList, guildId) {
-    
+
     for (entry in songList) {
         var url = songList[entry].url;
         var title = songList[entry].title;
@@ -230,9 +262,9 @@ async function getSongTitleFromURL(url) {
         const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${id}&key=${youtube_api_key}`);
         // console.log(response["data"]["items"][0]["snippet"]["title"]);
         songTitle = response["data"]["items"][0]["snippet"]["title"];
-      } catch (error) {
+    } catch (error) {
         console.error(error);
-      }
-    
+    }
+
     return songTitle;
 }
