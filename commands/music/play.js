@@ -15,6 +15,7 @@ const { youtube_api_key } = require('../../config.json')
 let resourceList = new Object();
 let songNamesList = new Object();
 let nextResourceIsAvailable = true;
+var statusChannel;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -32,36 +33,36 @@ module.exports = {
         const request = interaction.options.getString("song");
         const guildId = interaction.guildId;
         const channelList = Array.from(interaction.guild.channels.cache.values());
-        var statusChannel;
 
         var foundStatusChannel = false;
+        if (!statusChannel) {
+            for (i = 0; i < channelList.length; i++) {
+                if (channelList[i].type != ChannelType.GuildVoice) continue;
+                if (channelList[i].name.includes("Lollipop")) {
+                    statusChannel = channelList[i];
+                    foundStatusChannel = true;
+                    break;
+                }
+            }
 
-        for (i = 0; i < channelList.length; i++) {
-            if (channelList[i].type != ChannelType.GuildVoice) continue;
-            if (channelList[i].name.includes("Lollipop")) {
-                statusChannel = channelList[i];
-                foundStatusChannel = true;
-                break;
+            if (!foundStatusChannel) {
+                await interaction.guild.channels.create({
+                    name: "Lollipop",
+                    type: ChannelType.GuildVoice,
+                }).then((chan) => {
+                    statusChannel = chan;
+                    chan.permissionOverwrites.set([
+                        {
+                            id: interaction.guild.roles.everyone,
+                            deny: [PermissionsBitField.Flags.Connect],
+                        },
+
+                    ]);
+                }).catch(console.error);
             }
         }
 
-        if (!foundStatusChannel) {
-            interaction.guild.channels.create({
-                name: "Lollipop",
-                type: ChannelType.GuildVoice,
-            }).then((chan) => {
-                statusChannel = chan;
-                chan.permissionOverwrites.set([
-                    {
-                        id: interaction.guild.roles.everyone,
-                        deny: [PermissionsBitField.Flags.Connect],
-                    },
-                
-                ]);
-            }).catch(console.error);
-        }
-
-        console.log(statusChannel);
+        console.log(statusChannel.name);
 
 
         var currentTitle = '';
@@ -129,8 +130,10 @@ module.exports = {
             );
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\``);
+            currentTitle = title;
             resetResourceList(guildId);
             player.play(resource);
+            setStatusChannelName(currentTitle);
         }
 
         connection.on(
@@ -157,9 +160,10 @@ module.exports = {
                 oldState.status == AudioPlayerStatus.Playing
             ) {
                 startNextResourceTimer();
-                var nextResource, nextResourceTitle = getNextResource(guildId);
+                var [nextResource, nextResourceTitle] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
+                setStatusChannelName(currentTitle);
             }
         });
     },
@@ -220,7 +224,7 @@ function getNextResource(guildId) {
     var res = resourceList[guildId].shift();
     var resTitle = songNamesList[guildId].shift();
     dumpSongListToJsonFile();
-    return res, resTitle;
+    return [res, resTitle];
 }
 
 function resetResourceList(guildId) {
@@ -267,4 +271,9 @@ async function getSongTitleFromURL(url) {
     }
 
     return songTitle;
+}
+
+function setStatusChannelName(currentTitle) {
+    //TODO: Channel name is sometimes not changing for some reason
+    statusChannel.setName(`🎵 ${currentTitle} - Lollipop`).then(console.log("changed channel name to " + currentTitle)).catch(console.error);
 }
