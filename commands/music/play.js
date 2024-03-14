@@ -16,6 +16,7 @@ let resourceList = new Object();
 let songNamesList = new Object();
 let nextResourceIsAvailable = true;
 var statusChannel;
+var statusMessage;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -37,7 +38,7 @@ module.exports = {
         var foundStatusChannel = false;
         if (!statusChannel) {
             for (i = 0; i < channelList.length; i++) {
-                if (channelList[i].type != ChannelType.GuildVoice) continue;
+                if (channelList[i].type != ChannelType.GuildText) continue;
                 if (channelList[i].name.includes("Lollipop")) {
                     statusChannel = channelList[i];
                     foundStatusChannel = true;
@@ -47,17 +48,10 @@ module.exports = {
 
             if (!foundStatusChannel) {
                 await interaction.guild.channels.create({
-                    name: "Lollipop",
-                    type: ChannelType.GuildVoice,
+                    name: "🎵 Playlist - Lollipop",
+                    type: ChannelType.GuildText,
                 }).then((chan) => {
                     statusChannel = chan;
-                    chan.permissionOverwrites.set([
-                        {
-                            id: interaction.guild.roles.everyone,
-                            deny: [PermissionsBitField.Flags.Connect],
-                        },
-
-                    ]);
                 }).catch(console.error);
             }
         }
@@ -264,7 +258,6 @@ async function getSongTitleFromURL(url) {
     var songTitle;
     try {
         const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${id}&key=${youtube_api_key}`);
-        // console.log(response["data"]["items"][0]["snippet"]["title"]);
         songTitle = response["data"]["items"][0]["snippet"]["title"];
     } catch (error) {
         console.error(error);
@@ -274,6 +267,14 @@ async function getSongTitleFromURL(url) {
 }
 
 function setStatusChannelName(currentTitle) {
-    //TODO: Channel name is sometimes not changing for some reason
-    statusChannel.setName(`🎵 ${currentTitle} - Lollipop`).then(console.log("changed channel name to " + currentTitle)).catch(console.error);
+    if (!statusMessage) {
+        statusChannel.send(`🎵 Now playing: \`${currentTitle}\``).then((msg) => {
+            statusMessage = msg;
+        }).catch(console.error);
+    } else {
+        statusMessage.edit(`🎵 Now playing: \`${currentTitle}\``).then().catch(console.error);
+    }
+
+    // TODO: cases for when the bot is not playing any song, disconnected, etc
+    // deleting the message after the bot disconnects
 }
