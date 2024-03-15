@@ -184,7 +184,8 @@ module.exports = {
                 var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
-                setStatusChannelName(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
+                if (nextResourceTitle) setStatusChannelName(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
+                else setStatusChannelName("Not currently playing", "waiting for new songs", clientAvatar, guildId);
             }
         });
     },
@@ -244,6 +245,7 @@ function pushNewSongName(song, author, authorAvatar, guildId) {
 function getNextResource(guildId) {
     var res = resourceList[guildId].shift();
     var resInfo = songNamesList[guildId].shift();
+    if (!res) return [null, null, null, null];
     var resTitle = resInfo[0];
     var resAuthor = resInfo[1];
     var resAuthorAvatar = resInfo[2];
