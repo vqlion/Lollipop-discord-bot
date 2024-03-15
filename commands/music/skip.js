@@ -6,7 +6,7 @@ module.exports = {
         .setName("skip")
         .setDescription("Skips the current song"),
     async execute(interaction) {
-        await interaction.deferReply();
+        await interaction.deferReply({ ephemeral: true });
         const channel = interaction.member.voice.channel;
 
         if (!channel) {

@@ -12,7 +12,9 @@ module.exports = {
         if (!channel) {
             return interaction.editReply(
                 "You must be in a voice channel to perform this command."
-            );
+            ).then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, 5000);
+            }).catch(console.error);;
         }
 
         let connection = getVoiceConnection(channel.guildId);
@@ -22,14 +24,21 @@ module.exports = {
         if (!connection) {
             return interaction.editReply(
                 "The bot is not connected to a voice channel."
-            );
+            ).then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, 5000);
+            }).catch(console.error);;
         } else if (connection.joinConfig.channelId !== channel.id) {
             return interaction.editReply(
                 "You must be in the same voice channel as the bot to perform this command."
-            );
+            )
+            .then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, 5000);
+            }).catch(console.error);;
         }
 
-        interaction.editReply("Got it! Disconnecting the bot.");
+        interaction.editReply("Got it! Disconnecting the bot.").then(() => {
+            setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, 60000);
+        }).catch(console.error);;
         if (connection) connection.destroy();
         if (player) player.stop();
     },
