@@ -6,7 +6,7 @@ module.exports = {
         .setName("resume")
         .setDescription("Resumes the music"),
     async execute(interaction) {
-        await interaction.deferReply();
+        await interaction.deferReply({ ephemeral: true });
         const channel = interaction.member.voice.channel;
 
         if (!channel) {

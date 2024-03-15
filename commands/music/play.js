@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ChannelType, PermissionsBitField } = require("discord.js");
+const { SlashCommandBuilder, ChannelType, EmbedBuilder } = require("discord.js");
 const playdl = require("play-dl");
 const axios = require('axios').default;
 const {
@@ -17,6 +17,9 @@ let songNamesList = new Object();
 let nextResourceIsAvailable = true;
 var statusChannel;
 var statusMessage;
+var clientAvatar;
+var currentTitle;
+const DELETE_REPLY_TIMEOUT = 5000;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -34,12 +37,16 @@ module.exports = {
         const request = interaction.options.getString("song");
         const guildId = interaction.guildId;
         const channelList = Array.from(interaction.guild.channels.cache.values());
+        const memberName = interaction.member.displayName;
+        const memberAvatar = interaction.member.user.avatarURL();
+        
+        clientAvatar = interaction.client.user.avatarURL();
 
         var foundStatusChannel = false;
         if (!statusChannel) {
             for (i = 0; i < channelList.length; i++) {
                 if (channelList[i].type != ChannelType.GuildText) continue;
-                if (channelList[i].name.includes("Lollipop")) {
+                if (channelList[i].name.includes("lollipop")) {
                     statusChannel = channelList[i];
                     foundStatusChannel = true;
                     break;
@@ -56,15 +63,12 @@ module.exports = {
             }
         }
 
-        console.log(statusChannel.name);
-
-
-        var currentTitle = '';
-
         if (!channel) {
             return interaction.editReply(
                 "You must be in a voice channel to perform this command."
-            );
+            ).then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+            }).catch(console.error);
         }
 
         var connection = getVoiceConnection(channel.guildId);
@@ -81,7 +85,9 @@ module.exports = {
         } else if (connection.joinConfig.channelId !== channel.id) {
             return interaction.editReply(
                 "You must be in the same voice channel as the bot to perform this command."
-            );
+            ).then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+            }).catch(console.error);
         }
 
         var url = request;
@@ -101,7 +107,7 @@ module.exports = {
             url = videos_info[0].url;
             title = videos_info[0].title;
             videos_info.shift();
-            pushPlayListToSongList(videos_info, guildId);
+            pushPlayListToSongList(videos_info, memberName, memberAvatar, guildId);
         }
 
         var stream = await playdl.stream(url);
@@ -118,22 +124,29 @@ module.exports = {
 
         if (player.state.status == "playing") {
             pushNewResource(resource, guildId);
-            pushNewSongName(title, guildId);
+            pushNewSongName(title, memberName, memberAvatar, guildId);
             await interaction.editReply(
-                `Put \`${title}\` in the queue. It is currently at position \`${resourceList[guildId].length}\`.`
-            );
+                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${resourceList[guildId].length}\`.`
+            ).then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+            }).catch(console.error);
+            setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
         } else {
-            await interaction.editReply(`Got it! Playing \`${title}\``);
+            await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
+                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+            }).catch(console.error);
             currentTitle = title;
             resetResourceList(guildId);
             player.play(resource);
-            setStatusChannelName(currentTitle);
+            setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
         }
 
         connection.on(
             VoiceConnectionStatus.Disconnected,
             async (oldState, newState) => {
                 try {
+                    statusMessage.delete().then().catch(console.error);
+                    statusMessage = null;
                     connection.destroy();
                     player.stop();
                     resetResourceList(guildId);
@@ -142,6 +155,19 @@ module.exports = {
                 }
             }
         );
+
+        connection.on(
+            VoiceConnectionStatus.Destroyed,
+            async (oldState, newState) => {
+                try {
+                    statusMessage.delete().then().catch(console.error);
+                    statusMessage = null;
+                    resetResourceList(guildId);
+                } catch {
+                    console.error;
+                }
+            }
+        )
 
         player.on("error", (error) => {
             console.error(error);
@@ -153,11 +179,12 @@ module.exports = {
                 newState.status == AudioPlayerStatus.Idle &&
                 oldState.status == AudioPlayerStatus.Playing
             ) {
+                setStatusChannelName("Skipping...", "...", clientAvatar, guildId);
                 startNextResourceTimer();
-                var [nextResource, nextResourceTitle] = getNextResource(guildId);
+                var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
-                setStatusChannelName(currentTitle);
+                setStatusChannelName(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
             }
         });
     },
@@ -177,7 +204,7 @@ function isPlaylistUrl(string) {
     return isValidHttpUrl(string) && string.includes("playlist");
 }
 
-async function pushPlayListToSongList(songList, guildId) {
+async function pushPlayListToSongList(songList, author, authorAvatar, guildId) {
 
     for (entry in songList) {
         var url = songList[entry].url;
@@ -191,7 +218,7 @@ async function pushPlayListToSongList(songList, guildId) {
         });
 
         pushNewResource(resource, guildId);
-        pushNewSongName(title, guildId);
+        pushNewSongName(title, author, authorAvatar, guildId);
     }
 }
 
@@ -204,21 +231,24 @@ function pushNewResource(resource, guildId) {
     }
 }
 
-function pushNewSongName(song, guildId) {
+function pushNewSongName(song, author, authorAvatar, guildId) {
     if (guildId in songNamesList) {
-        songNamesList[guildId].push(song);
+        songNamesList[guildId].push([song, author, authorAvatar]);
     } else {
         songNamesList[guildId] = new Array();
-        songNamesList[guildId].push(song);
+        songNamesList[guildId].push([song, author, authorAvatar]);
     }
     dumpSongListToJsonFile();
 }
 
 function getNextResource(guildId) {
     var res = resourceList[guildId].shift();
-    var resTitle = songNamesList[guildId].shift();
+    var resInfo = songNamesList[guildId].shift();
+    var resTitle = resInfo[0];
+    var resAuthor = resInfo[1];
+    var resAuthorAvatar = resInfo[2];
     dumpSongListToJsonFile();
-    return [res, resTitle];
+    return [res, resTitle, resAuthor, resAuthorAvatar];
 }
 
 function resetResourceList(guildId) {
@@ -266,15 +296,36 @@ async function getSongTitleFromURL(url) {
     return songTitle;
 }
 
-function setStatusChannelName(currentTitle) {
+function setStatusChannelName(currentTitle, author, authorAvatar, guildId) {
+    const embededReply = new EmbedBuilder()
+        .setColor(0x0099FF)
+        .setTitle('🎵 Now playing')
+        .setAuthor({ name: 'Lollipop', iconURL: clientAvatar })
+        .setDescription(`**${currentTitle}** - \`${author}\``)
+        .setThumbnail(authorAvatar)
+        .addFields(
+            { name: '⏩ Next songs', value: getNextSongs(guildId) },
+        )
+        .setTimestamp()
+
     if (!statusMessage) {
-        statusChannel.send(`🎵 Now playing: \`${currentTitle}\``).then((msg) => {
+        statusChannel.send({ embeds: [embededReply] }).then((msg) => {
             statusMessage = msg;
         }).catch(console.error);
     } else {
-        statusMessage.edit(`🎵 Now playing: \`${currentTitle}\``).then().catch(console.error);
+        statusMessage.edit({ embeds: [embededReply] }).then().catch(console.error);
     }
+}
 
-    // TODO: cases for when the bot is not playing any song, disconnected, etc
-    // deleting the message after the bot disconnects
+function getNextSongs(guildId) {
+    var res = ""
+    for (let i = 0; i < Math.min(songNamesList[guildId].length, 3); i++) {
+        var songTitle = songNamesList[guildId][i][0];
+        var songAuthor = songNamesList[guildId][i][1];
+        res += `**${songTitle}** - \`${songAuthor}\``
+        res += i == Math.min(songNamesList[guildId].length, 3) - 1 ? "" : "\n";
+    }
+    res += songNamesList[guildId].length > 3 ? "\n**...**" : "\u200B";
+    res += songNamesList[guildId].length == 0 ? "No songs in queue" : "\u200B";
+    return res;
 }
