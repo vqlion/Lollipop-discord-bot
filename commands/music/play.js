@@ -18,7 +18,7 @@ let nextResourceIsAvailable = true;
 var statusChannel;
 var statusMessage;
 var clientAvatar;
-var currentTitle;
+var currentTitle, currentTitleUsername, currentTitleAvatar;
 const DELETE_REPLY_TIMEOUT = 5000;
 
 module.exports = {
@@ -130,12 +130,14 @@ module.exports = {
             ).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
-            setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
+            setStatusChannelName(currentTitle, currentTitleUsername, currentTitleAvatar, guildId);
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
             currentTitle = title;
+            currentTitleUsername = memberName;
+            currentTitleAvatar = memberAvatar;
             resetResourceList(guildId);
             player.play(resource);
             setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
@@ -184,6 +186,8 @@ module.exports = {
                 var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
+                currentTitleUsername = nextResourceAuthor;
+                currentTitleAvatar = nextResourceAvatar;
                 if (nextResourceTitle) setStatusChannelName(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
                 else setStatusChannelName("Not currently playing", "waiting for new songs", clientAvatar, guildId);
             }
