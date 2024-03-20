@@ -147,7 +147,7 @@ module.exports = {
             statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            setStatusChannelName(currentTitle, currentTitleUsername, currentTitleAvatar, guildId);
+            setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId);
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
@@ -160,7 +160,7 @@ module.exports = {
             currentTitleAvatar = memberAvatar;
             resetResourceList(guildId);
             player.play(resource);
-            setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
+            setStatusMessage(currentTitle, memberName, memberAvatar, guildId);
         }
 
         connection.on(
@@ -201,15 +201,15 @@ module.exports = {
                 newState.status == AudioPlayerStatus.Idle &&
                 oldState.status == AudioPlayerStatus.Playing
             ) {
-                setStatusChannelName("Skipping...", "...", clientAvatar, guildId);
+                setStatusMessage("Skipping...", "...", clientAvatar, guildId);
                 startNextResourceTimer();
                 var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
                 currentTitleUsername = nextResourceAuthor;
                 currentTitleAvatar = nextResourceAvatar;
-                if (nextResourceTitle) setStatusChannelName(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
-                else setStatusChannelName("Not currently playing", "waiting for new songs", clientAvatar, guildId);
+                if (nextResourceTitle) setStatusMessage(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
+                else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId);
             }
         });
     },
@@ -322,7 +322,7 @@ async function getSongTitleFromURL(url) {
     return songTitle;
 }
 
-function setStatusChannelName(currentTitle, author, authorAvatar, guildId) {
+function setStatusMessage(currentTitle, author, authorAvatar, guildId) {
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('🎵 Now playing')
