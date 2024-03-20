@@ -15,10 +15,10 @@ const { youtube_api_key } = require('../../config.json')
 let resourceList = new Object();
 let songNamesList = new Object();
 let nextResourceIsAvailable = true;
-var statusChannel;
+var statusChannel, statusThread;
 var statusMessage;
 var clientAvatar;
-var currentTitle;
+var currentTitle, currentTitleUsername, currentTitleAvatar;
 const DELETE_REPLY_TIMEOUT = 5000;
 
 module.exports = {
@@ -39,7 +39,7 @@ module.exports = {
         const channelList = Array.from(interaction.guild.channels.cache.values());
         const memberName = interaction.member.displayName;
         const memberAvatar = interaction.member.user.avatarURL();
-        
+
         clientAvatar = interaction.client.user.avatarURL();
 
         var foundStatusChannel = false;
@@ -62,6 +62,20 @@ module.exports = {
                 }).catch(console.error);
             }
         }
+
+        if (!statusThread) {
+            statusThread = statusChannel.threads.cache.find(thread => thread.name === "🎵 Song history - Lollipop");
+            if (!statusThread) {
+                await statusChannel.threads.create({
+                    name: "🎵 Song history - Lollipop",
+                    autoArchiveDuration: 60,
+                }).then((thread) => {
+                    statusThread = thread;
+                }).catch(console.error);
+            }
+        }
+
+        if (!statusThread.locked) statusThread.setLocked(true).then().catch(console.error);
 
         if (!channel) {
             return interaction.editReply(
@@ -130,12 +144,20 @@ module.exports = {
             ).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
-            setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
+            statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
+                .then()
+                .catch(console.error);
+            setStatusChannelName(currentTitle, currentTitleUsername, currentTitleAvatar, guildId);
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
+            statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
+                .then()
+                .catch(console.error);
             currentTitle = title;
+            currentTitleUsername = memberName;
+            currentTitleAvatar = memberAvatar;
             resetResourceList(guildId);
             player.play(resource);
             setStatusChannelName(currentTitle, memberName, memberAvatar, guildId);
@@ -184,6 +206,8 @@ module.exports = {
                 var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
+                currentTitleUsername = nextResourceAuthor;
+                currentTitleAvatar = nextResourceAvatar;
                 if (nextResourceTitle) setStatusChannelName(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
                 else setStatusChannelName("Not currently playing", "waiting for new songs", clientAvatar, guildId);
             }
