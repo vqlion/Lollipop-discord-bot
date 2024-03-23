@@ -27,13 +27,11 @@ module.exports = {
     async execute(interaction) {
 
         const question = interaction.options.getString("question");
-        const options = interaction.options.getString("options").split(",");
+        const options = interaction.options.getString("options").split(",").map((option) => option.trim()); // trim to remove spaces
         const unique = interaction.options.getBoolean("unique") ?? false;
         const memberName = interaction.member.displayName;
-        const memberAvatar = interaction.member.avatarURL();
+        const memberAvatar = interaction.member.avatarURL() ?? interaction.member.user.avatarURL();
         const memberId = interaction.member.user.tag;
-
-        console.log(unique);
 
         clientAvatar = interaction.client.user.avatarURL();
 
@@ -54,27 +52,26 @@ module.exports = {
             components.push(button);
         });
 
-        console.log(answers)
-        console.log(components);
-
         const row = new ActionRowBuilder()
             .addComponents(components);
 
 
         const response = await interaction.reply({
-            embeds: [generateEmbedResponseMessage(question, options, memberId, memberAvatar, answers)],
+            embeds: [generateEmbedResponseMessage(question, components, memberId, memberAvatar, answers)],
             components: [row]
         });
 
         const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 3_600_000 });
 
         collector.on('collect', async i => {
-            console.log(i.customId);
             const selection = i.customId;
             const memberVote = i.member;
-            console.log(answers);
-            if (answers[selection].find((answer) => answer.member.id === memberVote.id)) { // can't vote for the same answer twice
-                return;
+            var sameVote = false;
+            if (answers[selection].find((answer) => answer.member.id === memberVote.id)) { // remove the vote if the user has already voted for this answer
+                const answerIndex = answers[selection].findIndex((answer) => answer.member.id === memberVote.id);
+                answers[selection].splice(answerIndex, 1);
+                sameVote = true;
+                await i.reply({ content: `Removed your vote for ${components.find((button) => button.data.custom_id === selection).data.label}.`, ephemeral: true });
             }
 
             if (unique) { // user can only vote for one option
@@ -85,32 +82,38 @@ module.exports = {
                     }
                 }
             }
-            console.log(answers);
-            answers[selection].push({ member: memberVote, selection: selection });
-            console.log(answers);
+            if (!sameVote) {
+                answers[selection].push({ member: memberVote, selection: selection });
+                await i.reply({ content: `You have selected ${components.find((button) => button.data.custom_id === selection).data.label}!`, ephemeral: true });
+            }
+
             await interaction.editReply({
-                embeds: [generateEmbedResponseMessage(question, options, memberId, memberAvatar, answers)],
+                embeds: [generateEmbedResponseMessage(question, components, memberId, memberAvatar, answers)],
                 components: [row]
             });
-            // await i.reply(`${i.user} has selected ${selection}!`);
         });
     },
 };
 
-function generateEmbedResponseMessage(question, options, author, authorAvatar, ans) {
+function generateEmbedResponseMessage(question, buttons, author, authorAvatar, ans) {
     optionFields = [];
 
-    options.forEach((option, index) => {
-        optionFields.push({ name: option, value: option });
-    });
+    for (const [key, value] of Object.entries(ans)) {
+        var optionLabel = buttons.find((button) => button.data.custom_id === key);
+        optionLabel = optionLabel.data.label;
+        optionFields.push({
+            name: optionLabel,
+            value: value.length > 0 ? value.map((answer) => userMention(answer.member.id)).join(", ") : "No votes yet",
+        });
+    }
 
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle(`Poll: **${question}**`)
-        .setAuthor({ name: 'Lollipop', iconURL: clientAvatar })
+        .setAuthor({ name: author, iconURL: authorAvatar })
         .addFields(optionFields)
         .setTimestamp()
-        .setFooter({ text: author, iconURL: authorAvatar });
+        .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
 
     return embededReply;
 }
