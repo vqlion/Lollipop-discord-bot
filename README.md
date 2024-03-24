@@ -8,6 +8,10 @@ Lollipop is my discord bot, built with discord.js.
   - Classic music commands (play, skip, queue...)
   - Displays the song currently playing and the next songs to come in a permanent message
    ![image](https://github.com/vqlion/Lollipop-discord-bot/assets/104720049/62e259fd-2e49-41de-8b29-9aa351ba24f4)
+- Polling
+  - Create a poll that displays the answers in a permanent message
+  - Unique or multiple answers
+  - Unlimited amount of possible answers
 - Moderation
   - Create a lot of channels at once
   - Delete a lot of channels at once
@@ -31,6 +35,7 @@ Create a file name ```config.json``` based on the ```config.example.json```. Put
 Then install the dependencies and run the bot:
 ```bash
 npm install
+node deploy-commands.js
 node .
 ```
 
