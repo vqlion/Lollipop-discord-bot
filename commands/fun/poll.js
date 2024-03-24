@@ -25,6 +25,7 @@ module.exports = {
                 .setRequired(false)
         ),
     async execute(interaction) {
+        await interaction.deferReply({ephemeral: true});
 
         const question = interaction.options.getString("question");
         const options = interaction.options.getString("options").split(",").map((option) => option.trim()); // trim to remove spaces
@@ -32,13 +33,14 @@ module.exports = {
         const memberName = interaction.member.displayName;
         const memberAvatar = interaction.member.avatarURL() ?? interaction.member.user.avatarURL();
         const memberId = interaction.member.user.tag;
+        const channel = interaction.channel;
 
         clientAvatar = interaction.client.user.avatarURL();
 
         var answers = {};
 
         if (options.length < 2) {
-            return interaction.reply({ content: 'You need to give at least 2 options.', ephemeral: true });
+            return interaction.editReply({ content: 'You need to give at least 2 options.'});
         }
 
         var components = [];
@@ -56,10 +58,12 @@ module.exports = {
             .addComponents(components);
 
 
-        const response = await interaction.reply({
-            embeds: [generateEmbedResponseMessage(question, components, memberId, memberAvatar, answers)],
+        const response = await channel.send({
+            embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers)],
             components: [row]
         });
+
+        await interaction.editReply({ content: 'Poll created!' });
 
         const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 3_600_000 });
 
@@ -87,15 +91,15 @@ module.exports = {
                 await i.reply({ content: `You have selected ${components.find((button) => button.data.custom_id === selection).data.label}!`, ephemeral: true });
             }
 
-            await interaction.editReply({
-                embeds: [generateEmbedResponseMessage(question, components, memberId, memberAvatar, answers)],
+            await response.edit({
+                embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers)],
                 components: [row]
             });
         });
     },
 };
 
-function generateEmbedResponseMessage(question, buttons, author, authorAvatar, ans) {
+function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans) {
     optionFields = [];
 
     for (const [key, value] of Object.entries(ans)) {
