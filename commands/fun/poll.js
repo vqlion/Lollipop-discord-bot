@@ -65,7 +65,7 @@ module.exports = {
 
         await interaction.editReply({ content: 'Poll created!' });
 
-        const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 3_600_000 });
+        const collector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 86400000 });
 
         collector.on('collect', async i => {
             const selection = i.customId;
@@ -96,10 +96,17 @@ module.exports = {
                 components: [row]
             });
         });
+
+        collector.on('end', async () => {
+            await response.edit({
+                embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers, true)],
+                components: []
+            });
+        });
     },
 };
 
-function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans) {
+function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans, pollEnded = false) {
     optionFields = [];
 
     for (const [key, value] of Object.entries(ans)) {
@@ -111,13 +118,15 @@ function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans) 
         });
     }
 
+    const footer = pollEnded ? `Lollipop - Poll ended` : `Lollipop - Poll active`;
+
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle(`Poll: **${question}**`)
         .setAuthor({ name: author, iconURL: authorAvatar })
         .addFields(optionFields)
-        .setTimestamp()
-        .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
+        .setFooter({ text: footer, iconURL: clientAvatar })
+        .setTimestamp();
 
     return embededReply;
 }
