@@ -16,7 +16,6 @@ let resourceList = new Object();
 let songNamesList = new Object();
 let nextResourceIsAvailable = true;
 var statusChannel, statusThread;
-var statusMessage;
 var clientAvatar;
 var currentTitle, currentTitleUsername, currentTitleAvatar;
 const DELETE_REPLY_TIMEOUT = 5000;
@@ -39,6 +38,18 @@ module.exports = {
         const channelList = Array.from(interaction.guild.channels.cache.values());
         const memberName = interaction.member.displayName;
         const memberAvatar = interaction.member.user.avatarURL();
+        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
+        console.log(statusMessageId);
+        var statusMessage;
+        if (statusMessageId) {
+            try {
+                await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                    statusMessage = msg;
+                }).catch(statusMessage = null);
+            } catch (error) {
+                statusMessage = null;
+            }
+        }
 
         clientAvatar = interaction.client.user.avatarURL();
 
@@ -147,7 +158,7 @@ module.exports = {
             statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId);
+            setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage);
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
@@ -160,7 +171,7 @@ module.exports = {
             currentTitleAvatar = memberAvatar;
             resetResourceList(guildId);
             player.play(resource);
-            setStatusMessage(currentTitle, memberName, memberAvatar, guildId);
+            setStatusMessage(currentTitle, memberName, memberAvatar, guildId, statusMessage);
         }
 
         connection.on(
@@ -201,15 +212,15 @@ module.exports = {
                 newState.status == AudioPlayerStatus.Idle &&
                 oldState.status == AudioPlayerStatus.Playing
             ) {
-                setStatusMessage("Skipping...", "...", clientAvatar, guildId);
+                setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage);
                 startNextResourceTimer();
                 var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
                 currentTitleUsername = nextResourceAuthor;
                 currentTitleAvatar = nextResourceAvatar;
-                if (nextResourceTitle) setStatusMessage(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId);
-                else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId);
+                if (nextResourceTitle) setStatusMessage(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId, statusMessage);
+                else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage);
             }
         });
     },
@@ -301,6 +312,34 @@ function dumpSongListToJsonFile() {
     );
 }
 
+function dumpStatusMessageToJsonFile(statusMessageId, guildId) {
+    var statusMessagesList;
+    var data;
+    try {
+        data = fs.readFileSync("status_messages.json");
+    } catch (error) { }
+    if (data == null) statusMessagesList = new Object();
+    else statusMessagesList = JSON.parse(data);
+    statusMessagesList[guildId] = statusMessageId;
+    fs.writeFile(
+        "status_messages.json",
+        JSON.stringify(statusMessagesList),
+        function (err) {
+            if (err) throw err;
+        }
+    );
+}
+
+function getStatusMessageIdFronJsonFile(guildId) {
+    var data;
+    try {
+        data = fs.readFileSync("status_messages.json");
+    } catch (error) { }
+    if (data == null) return null;
+    var statusMessagesList = JSON.parse(data);
+    return statusMessagesList[guildId];
+}
+
 async function getSongTitleFromURL(url) {
     var id = url.substring(
         url.indexOf("?v=") + 3
@@ -322,7 +361,7 @@ async function getSongTitleFromURL(url) {
     return songTitle;
 }
 
-function setStatusMessage(currentTitle, author, authorAvatar, guildId) {
+async function setStatusMessage(currentTitle, author, authorAvatar, guildId, statusMessage) {
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('🎵 Now playing')
@@ -335,12 +374,15 @@ function setStatusMessage(currentTitle, author, authorAvatar, guildId) {
         .setTimestamp()
 
     if (!statusMessage) {
-        statusChannel.send({ embeds: [embededReply] }).then((msg) => {
+        await statusChannel.send({ embeds: [embededReply] }).then((msg) => {
             statusMessage = msg;
         }).catch(console.error);
     } else {
-        statusMessage.edit({ embeds: [embededReply] }).then().catch(console.error);
+        await statusMessage.edit({ embeds: [embededReply] }).then((msg) => {
+            statusMessage = msg;
+        }).catch(console.error);
     }
+    dumpStatusMessageToJsonFile(statusMessage.id, guildId);
 }
 
 function getNextSongs(guildId) {
