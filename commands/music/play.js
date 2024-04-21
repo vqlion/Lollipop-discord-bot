@@ -280,13 +280,13 @@ module.exports = {
 /**
  * Checks if a given string is a valid HTTP or HTTPS URL.
  *
- * @param {string} url The string to be checked.
+ * @param {string} string The string to be checked.
  * @returns {boolean} true if the string is a valid HTTP or HTTPS URL, false otherwise.
  */
-function isValidHttpUrl(url) {
+function isValidHttpUrl(string) {
     let url;
     try {
-        url = new URL(url);
+        url = new URL(string);
     } catch (_) {
         return false;
     }
