@@ -30,7 +30,7 @@ Clone the repository:
 ```bash
 git clone https://github.com/vqlion/Lollipop-discord-bot.git
 ```
-Create a file name ```config.json``` based on the ```config.example.json```. Put your bot's [authentification token and application ID](https://discord.com/developers/docs/getting-started), and your [youtube API key](https://console.cloud.google.com/apis/). 
+Create a file name ```config.json``` based on the ```config.example.json```. Put your bot's [authentification token and application ID](https://discord.com/developers/docs/getting-started), and your [youtube API key](https://console.cloud.google.com/apis/) (youtube API key is optional, just to fetch the song's title when a URL is passed).
 
 Then install the dependencies and run the bot:
 ```bash
@@ -41,4 +41,7 @@ node .
 
 ## Team
 
-<a href="https://github.com/vqlion"><img src="https://avatars.githubusercontent.com/u/104720049?v=4" width="75"></a> 
+<a href="https://github.com/vqlion"><img src="https://avatars.githubusercontent.com/u/104720049?v=4" width="75"></a>
+<a href="https://github.com/Yayadelaplaya/"><img src="https://avatars.githubusercontent.com/u/81352733?v=4" width="75"></a> 
+<a href="https://github.com/LordOfGnou/"><img src="https://avatars.githubusercontent.com/u/83947403?v=4" width="75"></a> 
+<a href="https://github.com/fkyro/"><img src="https://avatars.githubusercontent.com/u/94193573?v=4" width="75"></a> 
