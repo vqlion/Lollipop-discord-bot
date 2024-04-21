@@ -15,9 +15,7 @@ const { youtube_api_key } = require('../../config.json')
 let resourceList = new Object();
 let songNamesList = new Object();
 let nextResourceIsAvailable = true;
-var statusChannel, statusThread;
 var clientAvatar;
-var currentTitle, currentTitleUsername, currentTitleAvatar;
 const DELETE_REPLY_TIMEOUT = 5000;
 
 module.exports = {
@@ -38,8 +36,13 @@ module.exports = {
         const channelList = Array.from(interaction.guild.channels.cache.values());
         const memberName = interaction.member.displayName;
         const memberAvatar = interaction.member.user.avatarURL();
+        clientAvatar = interaction.client.user.avatarURL();
+
+        var currentTitle, currentTitleUsername, currentTitleAvatar;
+
         var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
         console.log(statusMessageId);
+
         var statusMessage;
         if (statusMessageId) {
             try {
@@ -51,39 +54,34 @@ module.exports = {
             }
         }
 
-        clientAvatar = interaction.client.user.avatarURL();
-
+        var statusChannel;
         var foundStatusChannel = false;
-        if (!statusChannel) {
-            for (i = 0; i < channelList.length; i++) {
-                if (channelList[i].type != ChannelType.GuildText) continue;
-                if (channelList[i].name.includes("lollipop")) {
-                    statusChannel = channelList[i];
-                    foundStatusChannel = true;
-                    break;
-                }
-            }
-
-            if (!foundStatusChannel) {
-                await interaction.guild.channels.create({
-                    name: "🎵 Playlist - Lollipop",
-                    type: ChannelType.GuildText,
-                }).then((chan) => {
-                    statusChannel = chan;
-                }).catch(console.error);
+        for (i = 0; i < channelList.length; i++) {
+            if (channelList[i].type != ChannelType.GuildText) continue;
+            if (channelList[i].name.includes("lollipop")) {
+                statusChannel = channelList[i];
+                foundStatusChannel = true;
+                break;
             }
         }
 
+        if (!foundStatusChannel) {
+            await interaction.guild.channels.create({
+                name: "🎵 Playlist - Lollipop",
+                type: ChannelType.GuildText,
+            }).then((chan) => {
+                statusChannel = chan;
+            }).catch(console.error);
+        }
+
+        var statusThread = statusChannel.threads.cache.find(thread => thread.name === "🎵 Song history - Lollipop");
         if (!statusThread) {
-            statusThread = statusChannel.threads.cache.find(thread => thread.name === "🎵 Song history - Lollipop");
-            if (!statusThread) {
-                await statusChannel.threads.create({
-                    name: "🎵 Song history - Lollipop",
-                    autoArchiveDuration: 60,
-                }).then((thread) => {
-                    statusThread = thread;
-                }).catch(console.error);
-            }
+            await statusChannel.threads.create({
+                name: "🎵 Song history - Lollipop",
+                autoArchiveDuration: 60,
+            }).then((thread) => {
+                statusThread = thread;
+            }).catch(console.error);
         }
 
         if (!statusThread.locked) statusThread.setLocked(true).then().catch(console.error);
@@ -158,7 +156,7 @@ module.exports = {
             statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage);
+            setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
         } else {
             await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
@@ -171,34 +169,50 @@ module.exports = {
             currentTitleAvatar = memberAvatar;
             resetResourceList(guildId);
             player.play(resource);
-            setStatusMessage(currentTitle, memberName, memberAvatar, guildId, statusMessage);
+            setStatusMessage(currentTitle, memberName, memberAvatar, guildId, statusMessage, statusChannel);
         }
 
         connection.on(
             VoiceConnectionStatus.Disconnected,
             async (oldState, newState) => {
+                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
+                console.log("disconnect", statusMessageId);
+                if (statusMessageId) {
+                    try {
+                        await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                            msg.delete().then().catch(console.error);
+                        }).catch();
+                    } catch (error) { }
+                }
                 try {
-                    statusMessage.delete().then().catch(console.error);
-                    statusMessage = null;
                     connection.destroy();
                     player.stop();
-                    resetResourceList(guildId);
-                } catch {
+                } catch (error) {
                     console.error;
                 }
+                resetResourceList(guildId);
             }
         );
 
         connection.on(
             VoiceConnectionStatus.Destroyed,
             async (oldState, newState) => {
+                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
+                console.log("destroy", statusMessageId);
+                if (statusMessageId) {
+                    try {
+                        await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                            msg.delete().then().catch(console.error);
+                        }).catch();
+                    } catch (error) { }
+                }
                 try {
-                    statusMessage.delete().then().catch(console.error);
-                    statusMessage = null;
-                    resetResourceList(guildId);
-                } catch {
+                    connection.destroy();
+                    player.stop();
+                } catch (error) {
                     console.error;
                 }
+                resetResourceList(guildId);
             }
         )
 
@@ -206,21 +220,23 @@ module.exports = {
             console.error(error);
         });
 
-        player.addListener("stateChange", (oldState, newState) => {
+        player.addListener("stateChange", async (oldState, newState) => {
             if (
                 nextResourceIsAvailable &&
                 newState.status == AudioPlayerStatus.Idle &&
                 oldState.status == AudioPlayerStatus.Playing
             ) {
-                setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage);
+                // console.log(statusMessage, statusMessageId);
+                console.log(statusMessage, statusMessageId);
+                setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage, statusChannel);
                 startNextResourceTimer();
                 var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
                 if (nextResource) player.play(nextResource);
                 currentTitle = nextResourceTitle;
                 currentTitleUsername = nextResourceAuthor;
                 currentTitleAvatar = nextResourceAvatar;
-                if (nextResourceTitle) setStatusMessage(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId, statusMessage);
-                else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage);
+                if (nextResourceTitle) setStatusMessage(currentTitle, nextResourceAuthor, nextResourceAvatar, guildId, statusMessage, statusChannel);
+                else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
             }
         });
     },
@@ -361,7 +377,7 @@ async function getSongTitleFromURL(url) {
     return songTitle;
 }
 
-async function setStatusMessage(currentTitle, author, authorAvatar, guildId, statusMessage) {
+async function setStatusMessage(currentTitle, author, authorAvatar, guildId, statusMessage, statusChannel) {
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('🎵 Now playing')
