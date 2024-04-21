@@ -106,6 +106,17 @@ module.exports = {
     },
 };
 
+/**
+ * Generates an embedded poll message.
+ *
+ * @param {string} question - The question for the poll.
+ * @param {Array} buttons - The buttons for the poll.
+ * @param {string} author - The author of the poll.
+ * @param {string} authorAvatar - The avatar of the author.
+ * @param {Object} ans - The answers for the poll.
+ * @param {boolean} [pollEnded=false] - Indicates whether the poll has ended.
+ * @returns {Object} The embedded poll message.
+ */
 function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans, pollEnded = false) {
     optionFields = [];
 
