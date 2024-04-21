@@ -12,7 +12,6 @@ const {
 const fs = require("fs");
 const { youtube_api_key } = require('../../config.json')
 
-let resourceList = new Object(); // TODO: THIS SHOULD BE DELETED
 var clientAvatar;
 let nextResourceIsAvailable = true;
 const DELETE_REPLY_TIMEOUT = 5000;
@@ -130,12 +129,6 @@ module.exports = {
             pushPlayListToSongList(videos_info, memberName, memberAvatar, guildId);
         }
 
-        var stream = await playdl.stream(url);
-
-        const resource = createAudioResource(stream.stream, {
-            inputType: stream.type,
-        });
-
         if (!player) {
             player = connection.state.subscription.player;
         }
@@ -143,10 +136,9 @@ module.exports = {
         title = title ?? request;
 
         if (player.state.status == "playing") {
-            pushNewResource(resource, guildId);
-            pushNewSongName(title, memberName, memberAvatar, guildId);
+            pushNewSongName(title, memberName, memberAvatar, url, guildId);
             await interaction.editReply(
-                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${resourceList[guildId].song_list.length}\`.`
+                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${0}\`.`
             ).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
@@ -164,6 +156,11 @@ module.exports = {
                 .catch(console.error);
             resetResourceList(guildId);
             pushCurrentSongName(title, memberName, memberAvatar, guildId);
+            var stream = await playdl.stream(url);
+
+            const resource = createAudioResource(stream.stream, {
+                inputType: stream.type,
+            });
             player.play(resource);
             setStatusMessage(title, memberName, memberAvatar, guildId, statusMessage, statusChannel);
         }
@@ -230,10 +227,17 @@ module.exports = {
                     }, 100);
                 }
                 var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-                await interaction.channel.messages.fetch(statusMessageId).then((statusMessage) => {
+                await interaction.channel.messages.fetch(statusMessageId).then(async (statusMessage) => {
                     setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage, statusChannel);
-                    var [nextResource, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
-                    if (nextResource) player.play(nextResource);
+                    var [nextResourceUrl, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResourceUrl(guildId);
+                    if (nextResourceUrl) {
+                        var stream = await playdl.stream(nextResourceUrl);
+
+                        const resource = createAudioResource(stream.stream, {
+                            inputType: stream.type,
+                        });
+                        player.play(resource);
+                    }
                     pushCurrentSongName(nextResourceTitle, nextResourceAuthor, nextResourceAvatar, guildId);
                     if (nextResourceTitle) setStatusMessage(nextResourceTitle, nextResourceAuthor, nextResourceAvatar, guildId, statusMessage, statusChannel);
                     else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
@@ -270,23 +274,13 @@ async function pushPlayListToSongList(songList, author, authorAvatar, guildId) {
             inputType: stream.type,
         });
 
-        pushNewResource(resource, guildId);
-        pushNewSongName(title, author, authorAvatar, guildId);
+        pushNewSongName(title, author, authorAvatar, url, guildId);
     }
 }
 
-function pushNewResource(resource, guildId) {
-    if (guildId in resourceList) {
-        resourceList[guildId].song_list.push(resource);
-    } else {
-        resourceList[guildId] = { "current_song": [], "song_list": [] };
-        resourceList[guildId].song_list.push(resource);
-    }
-}
-
-function pushNewSongName(song, author, authorAvatar, guildId) {
+function pushNewSongName(song, author, authorAvatar, url, guildId) {
     var songList = getSongListFromJsonFile(guildId);
-    songList.song_list.push([song, author, authorAvatar]);
+    songList.song_list.push([song, author, authorAvatar, url]);
     dumpSongListToJsonFile(songList, guildId);
 }
 
@@ -303,14 +297,14 @@ function getCurrentSongName(guildId) {
 
 
 // TODO: change this for the resource
-function getNextResource(guildId) {
+function getNextResourceUrl(guildId) {
     var songList = getSongListFromJsonFile(guildId);
-    var res = resourceList[guildId].song_list.shift();
     var resInfo = songList.song_list.shift();
-    if (!res) return [null, null, null, null];
+    if (!resInfo) return [null, null, null, null];
     var resTitle = resInfo[0];
     var resAuthor = resInfo[1];
     var resAuthorAvatar = resInfo[2];
+    var res = resInfo[3];
     dumpSongListToJsonFile(songList, guildId);
     return [res, resTitle, resAuthor, resAuthorAvatar];
 }
@@ -318,7 +312,6 @@ function getNextResource(guildId) {
 // TODO: change this for new resource list archi
 function resetResourceList(guildId) {
     const songList = { "current_song": [], "song_list": [] };
-    resourceList[guildId] = { "current_song": [], "song_list": [] };
     dumpSongListToJsonFile(songList, guildId);
 }
 
@@ -345,7 +338,7 @@ function getSongListFromJsonFile(guildId) {
     var data;
     try {
         data = fs.readFileSync("song_list.json");
-    } catch (error) { 
+    } catch (error) {
         console.error;
     }
     if (data == null || data.length == 0) return { "current_song": [], "song_list": [] };
