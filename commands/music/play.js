@@ -12,8 +12,7 @@ const {
 const fs = require("fs");
 const { youtube_api_key } = require('../../config.json')
 
-let resourceList = new Object(); // TODO:
-let songNamesList = new Object(); // THESE TWO NEED TO BE DELETED FROM HERE TOO!!!! 
+let resourceList = new Object(); // TODO: THIS SHOULD BE DELETED
 var clientAvatar;
 let nextResourceIsAvailable = true;
 const DELETE_REPLY_TIMEOUT = 5000;
@@ -286,58 +285,72 @@ function pushNewResource(resource, guildId) {
 }
 
 function pushNewSongName(song, author, authorAvatar, guildId) {
-    if (guildId in songNamesList) {
-        songNamesList[guildId].song_list.push([song, author, authorAvatar]);
-    } else {
-        songNamesList[guildId] = { "current_song": [], "song_list": [] };
-        songNamesList[guildId].song_list.push([song, author, authorAvatar]);
-    }
-    dumpSongListToJsonFile();
+    var songList = getSongListFromJsonFile(guildId);
+    songList.song_list.push([song, author, authorAvatar]);
+    dumpSongListToJsonFile(songList, guildId);
 }
 
 function pushCurrentSongName(song, author, authorAvatar, guildId) {
-    if (guildId in songNamesList) {
-        songNamesList[guildId].current_song = [song, author, authorAvatar];
-    } else {
-        songNamesList[guildId] = { "current_song": [], "song_list": [] };
-        songNamesList[guildId].current_song = [song, author, authorAvatar];
-        console.log(songNamesList);
-    }
-    dumpSongListToJsonFile();
+    var songList = getSongListFromJsonFile(guildId);
+    songList.current_song = [song, author, authorAvatar];
+    dumpSongListToJsonFile(songList, guildId);
 }
 
 function getCurrentSongName(guildId) {
-    if (guildId in songNamesList) {
-        return songNamesList[guildId].current_song;
-    }
+    const songList = getSongListFromJsonFile(guildId);
+    return songList.current_song;
 }
 
+
+// TODO: change this for the resource
 function getNextResource(guildId) {
+    var songList = getSongListFromJsonFile(guildId);
     var res = resourceList[guildId].song_list.shift();
-    var resInfo = songNamesList[guildId].song_list.shift();
+    var resInfo = songList.song_list.shift();
     if (!res) return [null, null, null, null];
     var resTitle = resInfo[0];
     var resAuthor = resInfo[1];
     var resAuthorAvatar = resInfo[2];
-    dumpSongListToJsonFile();
+    dumpSongListToJsonFile(songList, guildId);
     return [res, resTitle, resAuthor, resAuthorAvatar];
 }
 
+// TODO: change this for new resource list archi
 function resetResourceList(guildId) {
-    songNamesList[guildId] = { "current_song": [], "song_list": [] };
+    const songList = { "current_song": [], "song_list": [] };
     resourceList[guildId] = { "current_song": [], "song_list": [] };
-    dumpSongListToJsonFile();
+    dumpSongListToJsonFile(songList, guildId);
 }
 
-function dumpSongListToJsonFile() {
+function dumpSongListToJsonFile(songList, guildId) {
+    var fileData;
+    var data;
     try {
-        fs.writeFileSync(
-            "song_list.json",
-            JSON.stringify(songNamesList)
-        );
-    } catch {
+        data = fs.readFileSync("song_list.json");
+    } catch (error) { }
+    if (data == null || data.length == 0) fileData = new Object();
+    else fileData = JSON.parse(data);
+    fileData[guildId] = songList;
+    fs.writeFileSync(
+        "song_list.json",
+        JSON.stringify(fileData),
+        function (err) {
+            if (err) throw err;
+        }
+    );
+}
+
+function getSongListFromJsonFile(guildId) {
+    var songList;
+    var data;
+    try {
+        data = fs.readFileSync("song_list.json");
+    } catch (error) { 
         console.error;
     }
+    if (data == null || data.length == 0) return { "current_song": [], "song_list": [] };
+    songList = JSON.parse(data);
+    return songList[guildId];
 }
 
 function dumpStatusMessageToJsonFile(statusMessageId, guildId) {
@@ -346,10 +359,10 @@ function dumpStatusMessageToJsonFile(statusMessageId, guildId) {
     try {
         data = fs.readFileSync("status_messages.json");
     } catch (error) { }
-    if (data == null) statusMessagesList = new Object();
+    if (data == null || data.length == 0) statusMessagesList = new Object();
     else statusMessagesList = JSON.parse(data);
     statusMessagesList[guildId] = statusMessageId;
-    fs.writeFile(
+    fs.writeFileSync(
         "status_messages.json",
         JSON.stringify(statusMessagesList),
         function (err) {
@@ -363,7 +376,7 @@ function getStatusMessageIdFronJsonFile(guildId) {
     try {
         data = fs.readFileSync("status_messages.json");
     } catch (error) { }
-    if (data == null) return null;
+    if (data == null || data.length == 0) return null;
     var statusMessagesList = JSON.parse(data);
     return statusMessagesList[guildId];
 }
@@ -414,14 +427,15 @@ async function setStatusMessage(currentTitle, author, authorAvatar, guildId, sta
 }
 
 function getNextSongs(guildId) {
+    const songList = getSongListFromJsonFile(guildId);
     var res = ""
-    for (let i = 0; i < Math.min(songNamesList[guildId].song_list.length, 3); i++) {
-        var songTitle = songNamesList[guildId].song_list[i][0];
-        var songAuthor = songNamesList[guildId].song_list[i][1];
+    for (let i = 0; i < Math.min(songList.song_list.length, 3); i++) {
+        var songTitle = songList.song_list[i][0];
+        var songAuthor = songList.song_list[i][1];
         res += `**${songTitle}** - \`${songAuthor}\``
-        res += i == Math.min(songNamesList[guildId].song_list.length, 3) - 1 ? "" : "\n";
+        res += i == Math.min(songList.song_list.length, 3) - 1 ? "" : "\n";
     }
-    res += songNamesList[guildId].song_list.length > 3 ? "\n**...**" : "\u200B";
-    res += songNamesList[guildId].song_list.length == 0 ? "No songs in queue" : "\u200B";
+    res += songList.song_list.length > 3 ? "\n**...**" : "\u200B";
+    res += songList.song_list.length == 0 ? "No songs in queue" : "\u200B";
     return res;
 }
