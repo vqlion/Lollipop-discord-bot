@@ -42,7 +42,7 @@ module.exports = {
          * This is the ID of the message updated each time a new song is added.
          * It is created via the setStatusMessage function, it's an embed message.
         */
-        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);  
+        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
 
         var statusMessage; // status message mentioned earlier
         if (statusMessageId) {
@@ -128,20 +128,47 @@ module.exports = {
         var title = null;
 
         if (!isValidHttpUrl(request)) {
-            var yt_info = await playdl.search(request, { limit: 1 });
-            url = yt_info[0].url;
-            title = yt_info[0].title;
-        } else {
+            var youtubeVideoInfo = await playdl.search(request, { limit: 1 });
+            if (youtubeVideoInfo.length == 0) {
+                return interaction.editReply(
+                    "Couldn't find any video matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            url = youtubeVideoInfo[0].url;
+            title = youtubeVideoInfo[0].title;
+        } else if (!isPlaylistUrl(request)) {
             title = await getSongTitleFromURL(url);
+            if (!title) {
+                return interaction.editReply(
+                    "Couldn't find any video matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
         }
-
+        var playlistInfo, playlistVideosInfo, playlistTitle;
+        var requestIsPLaylist = false;
         if (isPlaylistUrl(request)) {
-            var playlist_info = await playdl.playlist_info(request);
-            var videos_info = await playlist_info.all_videos();
-            url = videos_info[0].url;
-            title = videos_info[0].title;
-            videos_info.shift();
-            pushPlayListToSongList(videos_info, memberName, memberAvatar, guildId);
+            requestIsPLaylist = true;
+            try {
+                playlistInfo = await playdl.playlist_info(request, { incomplete: true });
+            } catch (error) {
+                return interaction.editReply(
+                    "Couldn't find any playlist matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            playlistVideosInfo = await playlistInfo.all_videos();
+
+            url = playlistVideosInfo[0].url;
+            title = playlistVideosInfo[0].title;
+            playlistTitle = playlistInfo.title;
+            // the first song is either gonna be played now or added to the list below
+            // so remove it to not have it duplicated
+            playlistVideosInfo.shift();
         }
 
         if (!player) {
@@ -150,31 +177,36 @@ module.exports = {
 
         title = title ?? request;
 
+        /**
+         * This part adds the songs to the list or plays it, responds to the user, updates the status thread and the status message.
+         * If the bot is playing -> adds the song to the queue 
+         * If the bot isn't playing -> plays the song
+         */
         if (player.state.status == "playing") { // the bot is already playing something, add the song to the queue
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
 
             await interaction.editReply(
-                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${0}\`.`
+                `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
             ).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
 
-            statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
+            statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            
+
             [currentTitle, currentTitleUsername, currentTitleAvatar] = getCurrentSongName(guildId);
             setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
         } else {
-            await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
+            await interaction.editReply(`Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
 
-            statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
+            statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            
-            resetResourceList(guildId);
+
+            if (!isPlaylistUrl(request)) resetResourceList(guildId);
             pushCurrentSongName(title, memberName, memberAvatar, guildId);
 
             var stream = await playdl.stream(url);
@@ -183,6 +215,12 @@ module.exports = {
             });
             player.play(resource);
             setStatusMessage(title, memberName, memberAvatar, guildId, statusMessage, statusChannel);
+        }
+
+        // delayed adding the playlist songs to the list because it takes a bit of time
+        // that way the bot can answer to the interaction before it times out
+        if (requestIsPLaylist) {
+            pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
         }
 
         connection.on(
@@ -311,7 +349,7 @@ function isPlaylistUrl(url) {
  */
 async function getSongTitleFromURL(url) {
     var id = url.substring(
-        url.indexOf("?v=") + 3 
+        url.indexOf("?v=") + 3
     );
     if (url.includes("&ab_channel")) { // this is ugly and there is probably a better way to do it. oh well :)
         id = url.substring(
@@ -333,19 +371,20 @@ async function getSongTitleFromURL(url) {
 /**
  * Adds the songs from the songList to the queue. Used to add an entire playlist.
  *
- * @param {Array} songList - The list of songs to be added to the queue.
+ * @param {Array.<playdl.YouTubeVideo>} playlist - The list of songs to be added to the queue.
  * @param {string} author - The name of the person who added the songs.
  * @param {string} authorAvatar - The profile picture URL of the author.
  * @param {string} guildId - The ID of the guild where the songs are being added.
  * @returns {void}
  */
-async function pushPlayListToSongList(songList, author, authorAvatar, guildId) {
-    for (entry in songList) {
-        var url = songList[entry].url;
-        var title = songList[entry].title;
-
-        pushNewSongName(title, author, authorAvatar, url, guildId);
+async function pushPlayListToSongList(playlist, author, authorAvatar, guildId) {
+    var songList = getSongListFromJsonFile(guildId);
+    for (entry in playlist) {
+        var url = playlist[entry].url;
+        var title = playlist[entry].title;
+        songList.song_list.push([title, author, authorAvatar, url]);
     }
+    dumpSongListToJsonFile(songList, guildId);
 }
 
 /**
@@ -383,7 +422,7 @@ function pushCurrentSongName(song, author, authorAvatar, guildId) {
  * Retrieves the name, author name and author avatar URL of the current song for a given guild.
  * 
  * @param {string} guildId - The ID of the guild.
- * @returns {Array} [song, author, authorAvatar]
+ * @returns {Array.<string>} [song, author, authorAvatar]
  */
 function getCurrentSongName(guildId) {
     const songList = getSongListFromJsonFile(guildId);
@@ -394,7 +433,7 @@ function getCurrentSongName(guildId) {
  * Retrieves the next resource from the song list for the specified guild.
  * 
  * @param {string} guildId - The ID of the guild.
- * @returns {Array} An array containing the resource URL, the song title, the author and the author's avatar URL for the next song.
+ * @returns {Array.<string>} An array containing the resource URL, the song title, the author and the author's avatar URL for the next song.
  */
 function getNextResource(guildId) {
     var songList = getSongListFromJsonFile(guildId);
@@ -422,7 +461,7 @@ function resetResourceList(guildId) {
 /**
  * Writes the given song list to the JSON file, associated with the specified guild ID.
  *
- * @param {Array} songList - The list of songs to be dumped to the JSON file.
+ * @param {Array.<Object>} songList - The list of songs to be dumped to the JSON file.
  * @param {string} guildId - The ID of the guild associated with the song list.
  * @returns {void}
  */
