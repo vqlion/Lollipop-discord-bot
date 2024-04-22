@@ -140,9 +140,12 @@ module.exports = {
             requestIsPLaylist = true;
             playlistInfo = await playdl.playlist_info(request, { incomplete: true });
             playlistVideosInfo = await playlistInfo.all_videos();
+
             url = playlistVideosInfo[0].url;
             title = playlistVideosInfo[0].title;
             playlistTitle = playlistInfo.title;
+            // the first song is either gonna be played now or added to the list below
+            // so remove it to not have it duplicated
             playlistVideosInfo.shift();
         }
 
@@ -152,6 +155,11 @@ module.exports = {
 
         title = title ?? request;
 
+        /**
+         * This part adds the songs to the list or plays it, responds to the user, updates the status thread and the status message.
+         * If the bot is playing -> adds the song to the queue 
+         * If the bot isn't playing -> plays the song
+         */
         if (player.state.status == "playing") { // the bot is already playing something, add the song to the queue
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
 
@@ -187,6 +195,8 @@ module.exports = {
             setStatusMessage(title, memberName, memberAvatar, guildId, statusMessage, statusChannel);
         }
 
+        // delayed adding the playlist songs to the list because it takes a bit of time
+        // that way the bot can answer to the interaction before it times out
         if (requestIsPLaylist) {
             pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
         }
@@ -339,7 +349,7 @@ async function getSongTitleFromURL(url) {
 /**
  * Adds the songs from the songList to the queue. Used to add an entire playlist.
  *
- * @param {Array} playlist - The list of songs to be added to the queue.
+ * @param {Array.<playdl.YouTubeVideo>} playlist - The list of songs to be added to the queue.
  * @param {string} author - The name of the person who added the songs.
  * @param {string} authorAvatar - The profile picture URL of the author.
  * @param {string} guildId - The ID of the guild where the songs are being added.
@@ -390,7 +400,7 @@ function pushCurrentSongName(song, author, authorAvatar, guildId) {
  * Retrieves the name, author name and author avatar URL of the current song for a given guild.
  * 
  * @param {string} guildId - The ID of the guild.
- * @returns {Array} [song, author, authorAvatar]
+ * @returns {Array.<string>} [song, author, authorAvatar]
  */
 function getCurrentSongName(guildId) {
     const songList = getSongListFromJsonFile(guildId);
@@ -401,7 +411,7 @@ function getCurrentSongName(guildId) {
  * Retrieves the next resource from the song list for the specified guild.
  * 
  * @param {string} guildId - The ID of the guild.
- * @returns {Array} An array containing the resource URL, the song title, the author and the author's avatar URL for the next song.
+ * @returns {Array.<string>} An array containing the resource URL, the song title, the author and the author's avatar URL for the next song.
  */
 function getNextResource(guildId) {
     var songList = getSongListFromJsonFile(guildId);
@@ -429,7 +439,7 @@ function resetResourceList(guildId) {
 /**
  * Writes the given song list to the JSON file, associated with the specified guild ID.
  *
- * @param {Array} songList - The list of songs to be dumped to the JSON file.
+ * @param {Array.<Object>} songList - The list of songs to be dumped to the JSON file.
  * @param {string} guildId - The ID of the guild associated with the song list.
  * @returns {void}
  */
