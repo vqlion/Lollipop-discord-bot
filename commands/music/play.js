@@ -42,7 +42,7 @@ module.exports = {
          * This is the ID of the message updated each time a new song is added.
          * It is created via the setStatusMessage function, it's an embed message.
         */
-        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);  
+        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
 
         var statusMessage; // status message mentioned earlier
         if (statusMessageId) {
@@ -131,12 +131,12 @@ module.exports = {
             var yt_info = await playdl.search(request, { limit: 1 });
             url = yt_info[0].url;
             title = yt_info[0].title;
-        } else {
+        } else if (!isPlaylistUrl(request)) {
             title = await getSongTitleFromURL(url);
         }
 
         if (isPlaylistUrl(request)) {
-            var playlist_info = await playdl.playlist_info(request);
+            var playlist_info = await playdl.playlist_info(request, { incomplete: true });
             var videos_info = await playlist_info.all_videos();
             url = videos_info[0].url;
             title = videos_info[0].title;
@@ -162,7 +162,7 @@ module.exports = {
             statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            
+
             [currentTitle, currentTitleUsername, currentTitleAvatar] = getCurrentSongName(guildId);
             setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
         } else {
@@ -173,8 +173,8 @@ module.exports = {
             statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
                 .then()
                 .catch(console.error);
-            
-            resetResourceList(guildId);
+
+            if (!isPlaylistUrl(request)) resetResourceList(guildId);
             pushCurrentSongName(title, memberName, memberAvatar, guildId);
 
             var stream = await playdl.stream(url);
@@ -311,7 +311,7 @@ function isPlaylistUrl(url) {
  */
 async function getSongTitleFromURL(url) {
     var id = url.substring(
-        url.indexOf("?v=") + 3 
+        url.indexOf("?v=") + 3
     );
     if (url.includes("&ab_channel")) { // this is ugly and there is probably a better way to do it. oh well :)
         id = url.substring(
@@ -333,19 +333,20 @@ async function getSongTitleFromURL(url) {
 /**
  * Adds the songs from the songList to the queue. Used to add an entire playlist.
  *
- * @param {Array} songList - The list of songs to be added to the queue.
+ * @param {Array} playlist - The list of songs to be added to the queue.
  * @param {string} author - The name of the person who added the songs.
  * @param {string} authorAvatar - The profile picture URL of the author.
  * @param {string} guildId - The ID of the guild where the songs are being added.
  * @returns {void}
  */
-async function pushPlayListToSongList(songList, author, authorAvatar, guildId) {
-    for (entry in songList) {
-        var url = songList[entry].url;
-        var title = songList[entry].title;
-
-        pushNewSongName(title, author, authorAvatar, url, guildId);
+async function pushPlayListToSongList(playlist, author, authorAvatar, guildId) {
+    var songList = getSongListFromJsonFile(guildId);
+    for (entry in playlist) {
+        var url = playlist[entry].url;
+        var title = playlist[entry].title;
+        songList.song_list.push([title, author, authorAvatar, url]);
     }
+    dumpSongListToJsonFile(songList, guildId);
 }
 
 /**
