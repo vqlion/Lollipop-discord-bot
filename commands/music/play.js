@@ -154,7 +154,7 @@ module.exports = {
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
 
             await interaction.editReply(
-                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${0}\`.`
+                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
             ).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
