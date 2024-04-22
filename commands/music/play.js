@@ -134,14 +134,16 @@ module.exports = {
         } else if (!isPlaylistUrl(request)) {
             title = await getSongTitleFromURL(url);
         }
-
+        var playlistInfo, playlistVideosInfo, playlistTitle;
+        var requestIsPLaylist = false;
         if (isPlaylistUrl(request)) {
-            var playlist_info = await playdl.playlist_info(request, { incomplete: true });
-            var videos_info = await playlist_info.all_videos();
-            url = videos_info[0].url;
-            title = videos_info[0].title;
-            videos_info.shift();
-            pushPlayListToSongList(videos_info, memberName, memberAvatar, guildId);
+            requestIsPLaylist = true;
+            playlistInfo = await playdl.playlist_info(request, { incomplete: true });
+            playlistVideosInfo = await playlistInfo.all_videos();
+            url = playlistVideosInfo[0].url;
+            title = playlistVideosInfo[0].title;
+            playlistTitle = playlistInfo.title;
+            playlistVideosInfo.shift();
         }
 
         if (!player) {
@@ -154,23 +156,23 @@ module.exports = {
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
 
             await interaction.editReply(
-                `\`${memberName}\` put \`${title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
+                `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
             ).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
 
-            statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
+            statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
                 .catch(console.error);
 
             [currentTitle, currentTitleUsername, currentTitleAvatar] = getCurrentSongName(guildId);
             setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
         } else {
-            await interaction.editReply(`Got it! Playing \`${title}\` (asked by \`${memberName}\`)`).then(() => {
+            await interaction.editReply(`Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`)`).then(() => {
                 setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
             }).catch(console.error);
 
-            statusThread.send(`\`${memberName}\` put \`${title}\` in the queue.`)
+            statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
                 .catch(console.error);
 
@@ -183,6 +185,10 @@ module.exports = {
             });
             player.play(resource);
             setStatusMessage(title, memberName, memberAvatar, guildId, statusMessage, statusChannel);
+        }
+
+        if (requestIsPLaylist) {
+            pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
         }
 
         connection.on(
