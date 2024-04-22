@@ -128,17 +128,39 @@ module.exports = {
         var title = null;
 
         if (!isValidHttpUrl(request)) {
-            var yt_info = await playdl.search(request, { limit: 1 });
-            url = yt_info[0].url;
-            title = yt_info[0].title;
+            var youtubeVideoInfo = await playdl.search(request, { limit: 1 });
+            if (youtubeVideoInfo.length == 0) {
+                return interaction.editReply(
+                    "Couldn't find any video matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            url = youtubeVideoInfo[0].url;
+            title = youtubeVideoInfo[0].title;
         } else if (!isPlaylistUrl(request)) {
             title = await getSongTitleFromURL(url);
+            if (!title) {
+                return interaction.editReply(
+                    "Couldn't find any video matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
         }
         var playlistInfo, playlistVideosInfo, playlistTitle;
         var requestIsPLaylist = false;
         if (isPlaylistUrl(request)) {
             requestIsPLaylist = true;
-            playlistInfo = await playdl.playlist_info(request, { incomplete: true });
+            try {
+                playlistInfo = await playdl.playlist_info(request, { incomplete: true });
+            } catch (error) {
+                return interaction.editReply(
+                    "Couldn't find any playlist matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
             playlistVideosInfo = await playlistInfo.all_videos();
 
             url = playlistVideosInfo[0].url;
