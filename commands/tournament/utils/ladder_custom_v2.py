@@ -17,15 +17,11 @@
 #Ce qui pourrait être sympa c'est d'avoir un salon discord où quand on rentre l'id de la game, cela le fait automatiquement
 import sqlite3
 import requests
-import json
 import os
+import sys
 
 class ladder_custom():
-    def run(match_list, api_key, database):
-        
-        #print la list de matchs analysée
-        print('Match entry : ', match_list, '\n')
-        
+    def run(match_list, api_key, database):        
         #ici on va récupérer la db et ses tables de la db 'champions' et 'players' et 'matchIds'
         conn = sqlite3.connect(database)
         c = conn.cursor()
@@ -42,14 +38,8 @@ class ladder_custom():
         for match in match_list:
             if match not in match_db:
                 match_db.append(match)
-                #print de test, quel match
-                print('\n---\nnouveau match : ', match)
-
                 #récupère les données du match à l'ID 'match'
                 match_data = ladder_custom.get_match_data(match, api_key)
-
-                #quelle game on analyse (print de test)
-                print('\ngame suivante analysée : ', match_data)
 
                 player_data = match_data['info']['participants']
                 #on parcourt par participants
@@ -58,7 +48,6 @@ class ladder_custom():
                     ##première étape on s'occupe des stats pour chaque champion
                     ##si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
                     if ladder_custom.test_table(str(player['championId']),champions_stats,5) == False:
-                        print('nouveau champion : ', player['championName'])
                         champions_stats.append([player['championName'],0,0,0,0.0,player['championId']])
                     for j in range(len(champions_stats)):
                         if player['championId'] ==champions_stats[j][5]:
@@ -76,7 +65,6 @@ class ladder_custom():
                     ##si il n'y a pas déjà le champion (par summonerID) dans la base de données (ici une liste 2d) on rajoute une ligne pour le joueur
                     if ladder_custom.test_table(player['summonerId'], player_stats, 0) == False:
                         player_stats.append([player['summonerId'],player['riotIdGameName'],0,0,0,0.0,0,0,0,0.0])
-                        print('nouveau joueur : ', player['riotIdGameName'])
                     for j in range(len(player_stats)):
                         if player['summonerId'] == player_stats[j][0]:
                             i = j
@@ -101,9 +89,6 @@ class ladder_custom():
         for player in player_stats:
             print(player[1], ' : ', player[2], ' victoire(s) - ', player[3], ' défaite(s) - ',player[5],'% winrate - KDA de ', round(player[9],2),'\n')
         print('\n\n')
-        print('---\nLes statistiques par champions sont les suivants :\n\n')
-        for champion in champions_stats:
-            print(champion[0], ' : ', champion[1], ' victoire(s) - ', champion[2], ' défaite(s) - ',champion[4],'% winrate\n')
 
 
         ## on clean la database pour la compléter avec les données mis à jour
@@ -130,7 +115,6 @@ class ladder_custom():
         url = f"https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_{match_id}?api_key={api_key}"
         response = requests.get(url)
         if response.status_code == 200:
-            print("Données téléchargées avec succès")
             return response.json()
         else:
             print("Erreur : ",response.status_code)
@@ -183,16 +167,20 @@ class ladder_custom():
 # La API Key est trouvable sur le Riot Developer Portal https://developer.riotmatchs.com/
 # Elle doit être changée toutes les 24h ou une demande spéciale doit être faite à riot pour garder la même
 # Les matchs (custom) doivent être laner avec un code tournoi, sinon elle ne seront pas trouvées par l'API
-api_key = 'RGAPI-ed750a7d-0069-4efe-9377-b5583d71f25c'
 
-match_list = ['6905878530',
-              '6904073345',
-              '6906967365']
+if len(sys.argv) == 3:
+    match_id = sys.argv[1].split(',')
+    api_key = sys.argv[2]
+else:
+    print('Usage: python ladder_custom.py match_id api_key')
+    sys.exit()
 
-database = 'db_ladder.db'
+match_id = [str(i).strip() for i in match_id]
+
+database_file_path = './data/db_ladder.db'
 #crée une database (db_ladder.db) si elle n'existe pas
-if not os.path.isfile(database):
-    ladder_custom.create_database(database)
+if not os.path.isfile(database_file_path):
+    ladder_custom.create_database(database_file_path)
 
-ladder_custom.run(match_list, api_key, database)
+ladder_custom.run(match_id, api_key, database_file_path)
  

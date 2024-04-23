@@ -3,3 +3,4 @@ config.json
 song_list.json
 nohup.out
 start-bot.sh
+data/
