@@ -1,4 +1,4 @@
-#ladder_custom v2 --> crée une database si elle n'existe pas, la parcourt et ajoute les games qui ne sont pas déjà ajoutées.
+#ladder_custom --> crée une database si elle n'existe pas, la parcourt et ajoute les games qui ne sont pas déjà ajoutées.
 #Yayadelaplaya
 #19.04.2024 18:25 par yaya
 
@@ -21,9 +21,14 @@ import os
 import sys
 
 class ladder_custom():
-    def run(match_list, api_key, database):        
+    def __init__(self, db_path, api_key):
+        self.database = db_path
+        self.api_key = api_key
+        self.create_database()
+
+    def run(self, match_list):        
         #ici on va récupérer la db et ses tables de la db 'champions' et 'players' et 'matchIds'
-        conn = sqlite3.connect(database)
+        conn = sqlite3.connect(self.database)
         c = conn.cursor()
         c.execute ('SELECT * FROM champions')
         data = c.fetchall()
@@ -39,7 +44,7 @@ class ladder_custom():
             if match not in match_db:
                 match_db.append(match)
                 #récupère les données du match à l'ID 'match'
-                match_data = ladder_custom.get_match_data(match, api_key)
+                match_data = self.get_match_data(match)
 
                 player_data = match_data['info']['participants']
                 #on parcourt par participants
@@ -47,7 +52,7 @@ class ladder_custom():
                     i = 0
                     ##première étape on s'occupe des stats pour chaque champion
                     ##si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
-                    if ladder_custom.test_table(str(player['championId']),champions_stats,5) == False:
+                    if self.test_table(str(player['championId']),champions_stats,5) == False:
                         champions_stats.append([player['championName'],0,0,0,0.0,player['championId']])
                     for j in range(len(champions_stats)):
                         if player['championId'] ==champions_stats[j][5]:
@@ -63,7 +68,7 @@ class ladder_custom():
                     ##ensuite on s'occupe des stats par joueur
                     i = 0
                     ##si il n'y a pas déjà le champion (par summonerID) dans la base de données (ici une liste 2d) on rajoute une ligne pour le joueur
-                    if ladder_custom.test_table(player['summonerId'], player_stats, 0) == False:
+                    if self.test_table(player['summonerId'], player_stats, 0) == False:
                         player_stats.append([player['summonerId'],player['riotIdGameName'],0,0,0,0.0,0,0,0,0.0])
                     for j in range(len(player_stats)):
                         if player['summonerId'] == player_stats[j][0]:
@@ -109,10 +114,8 @@ class ladder_custom():
         conn.close()
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
-    def get_match_data(match_id, api_key):
-    
-        
-        url = f"https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_{match_id}?api_key={api_key}"
+    def get_match_data(self, match_id):
+        url = f"https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_{match_id}?api_key={self.api_key}"
         response = requests.get(url)
         if response.status_code == 200:
             return response.json()
@@ -122,10 +125,13 @@ class ladder_custom():
        
     # Ici on crée la database. Cette partie du code ne doit en théorique être
     # exécutée que la première fois, ou pour des tests.
-    def create_database(database):
+    def create_database(self):
+
+        if os.path.isfile(self.database):
+            return
 
         # création de la db
-        conn = sqlite3.connect(database)
+        conn = sqlite3.connect(self.database)
         c = conn.cursor()
 
         ####Création des tables
@@ -153,7 +159,7 @@ class ladder_custom():
         conn.close()
     
     #test si un élément est présent dans un tableau
-    def test_table(id, list, index):
+    def test_table(self, id, list, index):
         test = False
         for i in range(len(list)):
             if id==str(list[i][index]):
@@ -172,15 +178,15 @@ if len(sys.argv) == 3:
     match_id = sys.argv[1].split(',')
     api_key = sys.argv[2]
 else:
-    print('Usage: python ladder_custom.py match_id api_key')
-    sys.exit()
+    match_id = ['6911909323']
+    api_key = 'RGAPI-096aba05-3118-48fd-8731-1e2a24ba1c7e'
+    # print('Usage: python ladder_custom.py match_id api_key')
+    # sys.exit()
 
 match_id = [str(i).strip() for i in match_id]
 
 database_file_path = './data/db_ladder.db'
-#crée une database (db_ladder.db) si elle n'existe pas
-if not os.path.isfile(database_file_path):
-    ladder_custom.create_database(database_file_path)
 
-ladder_custom.run(match_id, api_key, database_file_path)
+ladder = ladder_custom(database_file_path, api_key)
+ladder.run(match_id)
  
