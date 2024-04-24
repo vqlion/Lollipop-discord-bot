@@ -26,8 +26,7 @@ class ladder_custom():
         self.api_key = api_key
         self.create_database()
 
-    def run(self, match_list):        
-        #ici on va récupérer la db et ses tables de la db 'champions' et 'players' et 'matchIds'
+    def get_db_tables(self):
         conn = sqlite3.connect(self.database)
         c = conn.cursor()
         c.execute ('SELECT * FROM champions')
@@ -39,7 +38,32 @@ class ladder_custom():
         c.execute ('SELECT * FROM matchIds')
         data = c.fetchall()
         match_db = [list(row2)[0] for row2 in data]
-        print('database de game existantes : ', match_db)
+        conn.close()
+        return champions_stats, player_stats, match_db
+    
+    def update_database(self, champions_stats, player_stats, match_db):
+        conn = sqlite3.connect(self.database)
+        c = conn.cursor()
+        ## on clean la database pour la compléter avec les données mis à jour
+        c.execute('DELETE FROM champions')
+        c.execute('DELETE FROM players')
+        c.execute('DELETE FROM matchIds')
+
+        #insertion des données màj
+        for row in champions_stats:
+            c.execute('INSERT INTO champions VALUES (?, ?, ?, ?, ?, ?)', row)
+        for row in player_stats:
+            c.execute('INSERT INTO players VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', row)
+        for match_id in match_db:
+            c.execute('INSERT INTO matchIds VALUES (?)', (match_id,))
+        
+        #on coupe la connexion avec la db
+        conn.commit()
+        conn.close()
+
+    def add_match(self, match_list):        
+        champions_stats, player_stats, match_db = self.get_db_tables()
+
         for match in match_list:
             if match not in match_db:
                 match_db.append(match)
@@ -95,23 +119,8 @@ class ladder_custom():
             print(player[1], ' : ', player[2], ' victoire(s) - ', player[3], ' défaite(s) - ',player[5],'% winrate - KDA de ', round(player[9],2),'\n')
         print('\n\n')
 
+        self.update_database(champions_stats, player_stats, match_db)
 
-        ## on clean la database pour la compléter avec les données mis à jour
-        c.execute('DELETE FROM champions')
-        c.execute('DELETE FROM players')
-        c.execute('DELETE FROM matchIds')
-
-        #insertion des données màj
-        for row in champions_stats:
-            c.execute('INSERT INTO champions VALUES (?, ?, ?, ?, ?, ?)', row)
-        for row in player_stats:
-            c.execute('INSERT INTO players VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', row)
-        for match_id in match_db:
-            c.execute('INSERT INTO matchIds VALUES (?)', (match_id,))
-        
-        #on coupe la connexion avec la db
-        conn.commit()
-        conn.close()
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
     def get_match_data(self, match_id):
@@ -188,5 +197,5 @@ match_id = [str(i).strip() for i in match_id]
 database_file_path = './data/db_ladder.db'
 
 ladder = ladder_custom(database_file_path, api_key)
-ladder.run(match_id)
+ladder.add_match(match_id)
  
