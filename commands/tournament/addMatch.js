@@ -26,8 +26,13 @@ module.exports = {
         const pythonProcess = spawn('python3', ["./commands/tournament/utils/add_match.py", matchId, apiKey]);
 
         pythonProcess.stdout.on('data', (data) => {
-            interaction.editReply(data.toString());
+            var response = data.toString().includes("True");
             console.log(data.toString());
+            if (response) {
+                interaction.editReply("Match added successfully!");
+            } else {
+                interaction.editReply("Couldn't add your match to the database. Please check the match id and the api key.");
+            }
         });
     }
 };

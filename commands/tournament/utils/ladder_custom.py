@@ -114,13 +114,6 @@ class ladder_custom():
                     else:
                         player_stats[i][9] = 999
 
-        #affichage des stats sous forme de print
-
-        print('\n\n----\nLes statistiques par joueurs sont les suivants :\n\n')
-        for player in player_stats:
-            print(player[1], ' : ', player[2], ' victoire(s) - ', player[3], ' défaite(s) - ',player[5],'% winrate - KDA de ', round(player[9],2),'\n')
-        print('\n\n')
-
         self.update_database(champions_stats, player_stats, match_db)
         print(True)
 
@@ -132,8 +125,8 @@ class ladder_custom():
         if response.status_code == 200:
             return response.json()
         else:
-            print("Erreur : ",response.status_code)
-            return None
+            print(False)
+            sys.exit()
        
     # Ici on crée la database. Cette partie du code ne doit en théorique être
     # exécutée que la première fois, ou pour des tests.
@@ -166,7 +159,6 @@ class ladder_custom():
         c.execute('''CREATE TABLE IF NOT EXISTS players
             (summonerId TEXT,riotIdGameName TEXT,wins INTEGER, loses INTEGER, total_games INTEGER, winrate REAL, kills INTEGER, deaths INTEGER, assists INTEGER, kda REAL)''')
         
-        print('La base de donnée a été créée.s')
         conn.commit()
         conn.close()
     
