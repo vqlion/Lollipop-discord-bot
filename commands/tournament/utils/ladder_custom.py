@@ -20,6 +20,8 @@ import requests
 import os
 import sys
 
+DATABASE_FILE_PATH = './data/db_ladder.db'
+
 class ladder_custom():
     def __init__(self, db_path, api_key):
         self.database = db_path
@@ -120,6 +122,7 @@ class ladder_custom():
         print('\n\n')
 
         self.update_database(champions_stats, player_stats, match_db)
+        print(True)
 
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
@@ -175,27 +178,3 @@ class ladder_custom():
                 test = True
                 break
         return test
-    
-    
-#####MAIN########
-###VARIABLES
-# La API Key est trouvable sur le Riot Developer Portal https://developer.riotmatchs.com/
-# Elle doit être changée toutes les 24h ou une demande spéciale doit être faite à riot pour garder la même
-# Les matchs (custom) doivent être laner avec un code tournoi, sinon elle ne seront pas trouvées par l'API
-
-if len(sys.argv) == 3:
-    match_id = sys.argv[1].split(',')
-    api_key = sys.argv[2]
-else:
-    match_id = ['6911909323']
-    api_key = 'RGAPI-096aba05-3118-48fd-8731-1e2a24ba1c7e'
-    # print('Usage: python ladder_custom.py match_id api_key')
-    # sys.exit()
-
-match_id = [str(i).strip() for i in match_id]
-
-database_file_path = './data/db_ladder.db'
-
-ladder = ladder_custom(database_file_path, api_key)
-ladder.add_match(match_id)
- 

@@ -23,7 +23,7 @@ module.exports = {
         const matchId = interaction.options.getString("match_id");
         const apiKey = interaction.options.getString("api_key");
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/ladder_custom.py", matchId, apiKey]);
+        const pythonProcess = spawn('python3', ["./commands/tournament/utils/add_match.py", matchId, apiKey]);
 
         pythonProcess.stdout.on('data', (data) => {
             interaction.editReply(data.toString());

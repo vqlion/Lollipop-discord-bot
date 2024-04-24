@@ -4,3 +4,4 @@ song_list.json
 nohup.out
 start-bot.sh
 data/
+__pycache__/
