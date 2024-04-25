@@ -10,20 +10,13 @@ module.exports = {
                 .setName("match_id")
                 .setDescription("The Id of the match. You can put multiple ones and separate them with a comma.")
                 .setRequired(true)
-        )
-        .addStringOption((option) =>
-            option
-                .setName("api_key")
-                .setDescription("The riot games api key")
-                .setRequired(true)
         ),
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
 
         const matchId = interaction.options.getString("match_id");
-        const apiKey = interaction.options.getString("api_key");
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/add_match.py", matchId, apiKey]);
+        const pythonProcess = spawn('python3', ["./commands/tournament/utils/add_match.py", matchId]);
 
         pythonProcess.stdout.on('data', (data) => {
             var response = data.toString().includes("True");

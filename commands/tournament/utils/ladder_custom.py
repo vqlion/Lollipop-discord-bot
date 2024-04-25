@@ -19,69 +19,104 @@ import sqlite3
 import requests
 import os
 import sys
+import json
+
+with open('config.json') as f:
+    config = json.load(f)
+    
+API_KEY = config['riot_api_key']
 
 DATABASE_FILE_PATH = './data/db_ladder.db'
 
 class ladder_custom():
-    def __init__(self, db_path, api_key):
-        self.database = db_path
-        self.api_key = api_key
+    def __init__(self):
+        self.database = DATABASE_FILE_PATH
+        self.api_key = API_KEY
         self.create_database()
 
     def get_db_tables(self):
-        conn = sqlite3.connect(self.database)
-        c = conn.cursor()
-        c.execute ('SELECT * FROM champions')
-        data = c.fetchall()
-        champions_stats = [list(row) for row in data]
-        c.execute ('SELECT * FROM players')
-        data = c.fetchall()
-        player_stats = [list(row1) for row1 in data]
-        c.execute ('SELECT * FROM matchIds')
-        data = c.fetchall()
-        match_db = [list(row2)[0] for row2 in data]
-        conn.close()
-        return champions_stats, player_stats, match_db
+            """
+            Retrieves data from the database tables.
+
+            Returns:
+                - champions_stats: A list of champion statistics.
+                - player_stats: A list of player statistics.
+                - match_db: A list of match IDs.
+            """
+            conn = sqlite3.connect(self.database)
+            c = conn.cursor()
+            c.execute ('SELECT * FROM champions')
+            data = c.fetchall()
+            champions_stats = [list(row) for row in data]
+            c.execute ('SELECT * FROM players')
+            data = c.fetchall()
+            player_stats = [list(row1) for row1 in data]
+            c.execute ('SELECT * FROM matchIds')
+            data = c.fetchall()
+            match_db = [list(row2)[0] for row2 in data]
+            conn.close()
+            return champions_stats, player_stats, match_db
     
     def update_database(self, champions_stats, player_stats, match_db):
+        """
+        Updates the database with the provided champion stats, player stats, and match IDs.
+
+        Args:
+            champions_stats (list): A list of tuples containing champion stats to be inserted into the 'champions' table.
+            player_stats (list): A list of tuples containing player stats to be inserted into the 'players' table.
+            match_db (list): A list of match IDs to be inserted into the 'matchIds' table.
+
+        Returns:
+            None
+        """
         conn = sqlite3.connect(self.database)
         c = conn.cursor()
-        ## on clean la database pour la compléter avec les données mis à jour
+
+        # Clean the database to update it with the new data
         c.execute('DELETE FROM champions')
         c.execute('DELETE FROM players')
         c.execute('DELETE FROM matchIds')
 
-        #insertion des données màj
+        # Insert the updated data
         for row in champions_stats:
             c.execute('INSERT INTO champions VALUES (?, ?, ?, ?, ?, ?)', row)
         for row in player_stats:
             c.execute('INSERT INTO players VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', row)
         for match_id in match_db:
             c.execute('INSERT INTO matchIds VALUES (?)', (match_id,))
-        
-        #on coupe la connexion avec la db
+
+        # Commit the changes and close the connection
         conn.commit()
         conn.close()
 
-    def add_match(self, match_list):        
+    def add_match(self, match_list):
+        """
+        Add matches to the database and update statistics for champions and players.
+
+        Args:
+            match_list (list): A list of match IDs to be added to the database.
+
+        Returns:
+            None
+        """
         champions_stats, player_stats, match_db = self.get_db_tables()
 
         for match in match_list:
             if match not in match_db:
                 match_db.append(match)
-                #récupère les données du match à l'ID 'match'
+                # récupère les données du match à l'ID 'match'
                 match_data = self.get_match_data(match)
 
                 player_data = match_data['info']['participants']
-                #on parcourt par participants
+                # on parcourt par participants
                 for player in player_data:
                     i = 0
-                    ##première étape on s'occupe des stats pour chaque champion
-                    ##si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
-                    if self.test_table(str(player['championId']),champions_stats,5) == False:
-                        champions_stats.append([player['championName'],0,0,0,0.0,player['championId']])
+                    ## première étape on s'occupe des stats pour chaque champion
+                    ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
+                    if self.test_table(str(player['championId']), champions_stats, 5) == False:
+                        champions_stats.append([player['championName'], 0, 0, 0, 0.0, player['championId']])
                     for j in range(len(champions_stats)):
-                        if player['championId'] ==champions_stats[j][5]:
+                        if player['championId'] == champions_stats[j][5]:
                             i = j
                             break
                     if player['win']:
@@ -90,12 +125,12 @@ class ladder_custom():
                         champions_stats[i][2] += 1
                     champions_stats[i][3] = champions_stats[i][2] + champions_stats[i][1]
                     champions_stats[i][4] = champions_stats[i][1] / champions_stats[i][3] * 100
-                    
-                    ##ensuite on s'occupe des stats par joueur
+
+                    ## ensuite on s'occupe des stats par joueur
                     i = 0
-                    ##si il n'y a pas déjà le champion (par summonerID) dans la base de données (ici une liste 2d) on rajoute une ligne pour le joueur
+                    ## si il n'y a pas déjà le champion (par summonerID) dans la base de données (ici une liste 2d) on rajoute une ligne pour le joueur
                     if self.test_table(player['summonerId'], player_stats, 0) == False:
-                        player_stats.append([player['summonerId'],player['riotIdGameName'],0,0,0,0.0,0,0,0,0.0])
+                        player_stats.append([player['summonerId'], player['riotIdGameName'], 0, 0, 0, 0.0, 0, 0, 0, 0.0])
                     for j in range(len(player_stats)):
                         if player['summonerId'] == player_stats[j][0]:
                             i = j
@@ -110,28 +145,46 @@ class ladder_custom():
                     player_stats[i][7] += player['deaths']
                     player_stats[i][8] += player['assists']
                     if player_stats[i][7] != 0:
-                        player_stats[i][9] = (player_stats[i][6]+player_stats[i][8])/player_stats[i][7]
+                        player_stats[i][9] = (player_stats[i][6] + player_stats[i][8]) / player_stats[i][7]
                     else:
                         player_stats[i][9] = 999
 
         self.update_database(champions_stats, player_stats, match_db)
-        print(True)
+        sys.stdout.write(f'{True}')
 
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
     def get_match_data(self, match_id):
+        """
+        Retrieves match data from the Riot Games API.
+
+        Args:
+            match_id (str): The ID of the match to retrieve data for.
+
+        Returns:
+            dict: The match data in JSON format.
+
+        Raises:
+            SystemExit: If the API request fails.
+
+        """
         url = f"https://europe.api.riotgames.com/lol/match/v5/matches/EUW1_{match_id}?api_key={self.api_key}"
         response = requests.get(url)
         if response.status_code == 200:
             return response.json()
         else:
-            print(False)
+            sys.stdout.write(f'{False}')
             sys.exit()
        
     # Ici on crée la database. Cette partie du code ne doit en théorique être
     # exécutée que la première fois, ou pour des tests.
     def create_database(self):
+        """
+        Creates the database if it doesn't already exist and initializes the required tables.
 
+        Returns:
+            None
+        """
         if os.path.isfile(self.database):
             return
 
@@ -164,9 +217,20 @@ class ladder_custom():
     
     #test si un élément est présent dans un tableau
     def test_table(self, id, list, index):
+        """
+        Check if a given ID exists in a list of lists at a specific index.
+
+        Parameters:
+        - id (str): The ID to search for.
+        - list (list): The list of lists to search in.
+        - index (int): The index at which to check for the ID.
+
+        Returns:
+        - bool: True if the ID is found, False otherwise.
+        """
         test = False
         for i in range(len(list)):
-            if id==str(list[i][index]):
+            if id == str(list[i][index]):
                 test = True
                 break
         return test
