@@ -110,13 +110,13 @@ class ladder_custom():
                 player_data = match_data['info']['participants']
                 # on parcourt par participants
                 for player in player_data:
-                    i = 0
                     ## première étape on s'occupe des stats pour chaque champion
                     ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
                     if self.test_table(str(player['championId']), champions_stats, 5) == False:
                         champions_stats.append([player['championName'], 0, 0, 0, 0.0, player['championId']])
+                    i = len(champions_stats) - 1
                     for j in range(len(champions_stats)):
-                        if player['championId'] == champions_stats[j][5]:
+                        if str(player['championId']) == champions_stats[j][5]:
                             i = j
                             break
                     if player['win']:
@@ -127,10 +127,10 @@ class ladder_custom():
                     champions_stats[i][4] = champions_stats[i][1] / champions_stats[i][3] * 100
 
                     ## ensuite on s'occupe des stats par joueur
-                    i = 0
                     ## si il n'y a pas déjà le champion (par summonerID) dans la base de données (ici une liste 2d) on rajoute une ligne pour le joueur
                     if self.test_table(player['summonerId'], player_stats, 0) == False:
                         player_stats.append([player['summonerId'], player['riotIdGameName'], 0, 0, 0, 0.0, 0, 0, 0, 0.0])
+                    i = len(player_stats) - 1
                     for j in range(len(player_stats)):
                         if player['summonerId'] == player_stats[j][0]:
                             i = j
@@ -147,7 +147,7 @@ class ladder_custom():
                     if player_stats[i][7] != 0:
                         player_stats[i][9] = (player_stats[i][6] + player_stats[i][8]) / player_stats[i][7]
                     else:
-                        player_stats[i][9] = 999
+                        player_stats[i][9] = player_stats[i][6] + player_stats[i][8]
 
         self.update_database(champions_stats, player_stats, match_db)
         sys.stdout.write(f'{True}')
@@ -200,17 +200,17 @@ class ladder_custom():
 
         #table 1: match_ids
         c.execute('''CREATE TABLE IF NOT EXISTS matchIds
-             (matchId TEXT)''')
+             (matchId TEXT PRIMARY KEY)''')
         
         #table 2: champions
         #Structure: [0] = champion // [1] = wins // [2] = loses // [3] = games total //  [4] = winrate% // [5] = championId
         c.execute('''CREATE TABLE IF NOT EXISTS champions
-             (champion TEXT, wins INTEGER, loses INTEGER, total_games INTEGER, winrate REAL, championId TEXT)''')
+             (champion TEXT, wins INTEGER, loses INTEGER, total_games INTEGER, winrate REAL, championId TEXT PRIMARY KEY)''')
         
         #table 3: players
         #Structure: [0] = summonerId [1] = riotIdGameName [2] = wins [3] = loses [5] = %winrate [4] = games totales[6] = kills [7] = deaths [8] = assists [9] = KDA
         c.execute('''CREATE TABLE IF NOT EXISTS players
-            (summonerId TEXT,riotIdGameName TEXT,wins INTEGER, loses INTEGER, total_games INTEGER, winrate REAL, kills INTEGER, deaths INTEGER, assists INTEGER, kda REAL)''')
+            (summonerId TEXT PRIMARY KEY,riotIdGameName TEXT,wins INTEGER, loses INTEGER, total_games INTEGER, winrate REAL, kills INTEGER, deaths INTEGER, assists INTEGER, kda REAL)''')
         
         conn.commit()
         conn.close()

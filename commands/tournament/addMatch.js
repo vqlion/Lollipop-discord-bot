@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ComponentType, ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder, userMention } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
 const { spawn } = require("child_process");
 
 module.exports = {
@@ -24,7 +24,7 @@ module.exports = {
             if (response) {
                 interaction.editReply("Match added successfully!");
             } else {
-                interaction.editReply("Couldn't add your match to the database. Please check the match id and the api key.");
+                interaction.editReply("Couldn't add your match to the database. Please check the match id.");
             }
         });
     }

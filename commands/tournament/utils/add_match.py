@@ -4,7 +4,7 @@ import sys
 if len(sys.argv) == 2:
     match_id = sys.argv[1].split(',')
 else:
-    print(False)
+    sys.stdout.write(f'{False}')
     sys.exit()
 
 match_id = [str(i).strip() for i in match_id]
