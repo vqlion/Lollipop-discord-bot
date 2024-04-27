@@ -152,6 +152,58 @@ class ladder_custom():
         self.update_database(champions_stats, player_stats, match_db)
         sys.stdout.write(f'{True}')
 
+    def delete_match(self, match_list):
+        champions_stats, player_stats, match_db = self.get_db_tables()
+
+        for match in match_list:
+            if match not in match_db:
+                sys.stdout.write(f'{False}')
+                sys.exit()
+            match_db.remove(match)
+            match_data = self.get_match_data(match)
+            player_data = match_data['info']['participants']
+            # on parcourt par participants
+            for player in player_data:
+                i = 0
+                ## première étape on s'occupe des stats pour chaque champion
+                ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
+                if self.test_table(str(player['championId']), champions_stats, 5):
+                    for index, champion in enumerate(champions_stats):
+                        if champion[5] != str(player['championId']):
+                            continue
+                        champion[3] -= 1
+                        if champion[3] == 0:
+                            champions_stats.pop(index)
+                            continue
+                        if player['win']:
+                            champion[1] -= 1
+                        else:
+                            champion[2] -= 1
+                        champion[4] = champion[1] / champion[3] * 100
+
+                if self.test_table(player['summonerId'], player_stats, 0):
+                    for index, summoner in enumerate(player_stats):
+                        if summoner[0] != player['summonerId']:
+                            continue
+                        summoner[4] -= 1
+                        if summoner[4] == 0:
+                            player_stats.pop(index)
+                            continue
+                        if player['win']:
+                            summoner[2] -= 1
+                        else:
+                            summoner[3] -= 1
+                        summoner[5] = summoner[2] / summoner[4] * 100
+                        summoner[6] -= player['kills']
+                        summoner[7] -= player['deaths']
+                        summoner[8] -= player['assists']
+                        if summoner[7] != 0:
+                            summoner[9] = (summoner[6] + summoner[8]) / summoner[7]
+                        else:
+                            summoner[9] = summoner[6] + summoner[8]
+        self.update_database(champions_stats, player_stats, match_db)
+        sys.stdout.write(f'{True}')
+
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
     def get_match_data(self, match_id):

@@ -5,3 +5,4 @@ nohup.out
 start-bot.sh
 data/
 __pycache__/
+.vscode/
