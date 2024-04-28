@@ -19,6 +19,7 @@ Lollipop is my discord bot, built with discord.js.
   - Order channels alphabetically
   - Protect a server from a raid (blocks all access to any channel)
 - Tournament
+
 The bot is able to track League of Legends games from a 'tournament'. We use that because we do a lot of 5v5 games on our server. The games have to be tournament games.
   - Add a match to the database
   - Delete a match from the database
