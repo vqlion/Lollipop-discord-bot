@@ -77,7 +77,7 @@ class ladder_custom():
             """
             Update the win rate of the champion.
             """
-            self.winrate = self.wins / self.total_games
+            self.winrate = (self.wins / self.total_games) * 100
 
         def to_row(self):
             """
@@ -87,6 +87,17 @@ class ladder_custom():
             - list: A list containing the champion's name, wins, losses, total games, win rate, and ID.
             """
             return [self.name, self.wins, self.loses, self.total_games, self.winrate, self.id]
+        
+        def to_json(self):
+            data = {
+                'name': self.name,
+                'wins': self.wins,
+                'loses': self.loses,
+                'total_games': self.total_games,
+                'winrate': self.winrate,
+                'id': self.id
+            }
+            return json.dumps(data)
 
     class Summoner():
         """
@@ -139,7 +150,7 @@ class ladder_custom():
             """
             Update the win rate of the summoner.
             """
-            self.winrate = self.wins / self.total_games
+            self.winrate = (self.wins / self.total_games) * 100
 
         def update_kda(self):
             """
@@ -375,6 +386,16 @@ class ladder_custom():
             if not player.test_id(summoner_id):
                 continue
             sys.stdout.write(f'{player.to_json(summoner_icon_id)}')
+
+    def champion_stats(self, champion_name):
+        champions_stats, _, _ = self.get_db_tables()
+
+        for champion in champions_stats:
+            if champion.name.lower() == champion_name.lower():
+                sys.stdout.write(f'{champion.to_json()}')
+                return
+
+        sys.stdout.write(f'{False}')
 
     def get_summoner_puuid(self, name, tag):
         url = f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{name}/{tag}?api_key={self.api_key}'
