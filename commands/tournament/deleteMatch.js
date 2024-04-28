@@ -15,6 +15,12 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply();
 
+        const member = interaction.member;
+
+        if (!member.roles.cache.find(role => role.name === 'Tournament admin')) {
+            return interaction.editReply("You don't have the permission to use this command.");
+        }
+
         const matchId = interaction.options.getString("match_id");
 
         const pythonProcess = spawn('python3', ["./commands/tournament/utils/delete_match.py", matchId]);
