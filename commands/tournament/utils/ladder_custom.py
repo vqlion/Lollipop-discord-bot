@@ -35,6 +35,18 @@ class ladder_custom():
         self.create_database()
 
     class Champion():
+        """
+        Represents a champion in the database.
+
+        Attributes:
+        - name (str): The name of the champion.
+        - wins (int): The number of wins the champion has.
+        - loses (int): The number of losses the champion has.
+        - total_games (int): The total number of games the champion has played.
+        - winrate (float): The win rate of the champion.
+        - id (int): The ID of the champion.
+        """
+
         def __init__(self, stats):
             self.name = stats[0]
             self.wins = stats[1]
@@ -44,18 +56,55 @@ class ladder_custom():
             self.id = stats[5]
 
         def test_id(self, id_tested):
+            """
+            Check if the given ID matches the champion's ID.
+
+            Parameters:
+            - id_tested (int): The ID to be tested.
+
+            Returns:
+            - bool: True if the given ID matches the champion's ID, False otherwise.
+            """
             return self.id == id_tested
         
         def update_total_games(self):
+            """
+            Update the total number of games played by the champion.
+            """
             self.total_games = self.wins + self.loses
 
         def update_winrate(self):
+            """
+            Update the win rate of the champion.
+            """
             self.winrate = self.wins / self.total_games
 
         def to_row(self):
+            """
+            Convert the champion object to a list representing a row of data.
+
+            Returns:
+            - list: A list containing the champion's name, wins, losses, total games, win rate, and ID.
+            """
             return [self.name, self.wins, self.loses, self.total_games, self.winrate, self.id]
 
     class Summoner():
+        """
+        Represents a summoner in the database.
+
+        Attributes:
+        - id (int): The ID of the summoner.
+        - name (str): The name of the summoner.
+        - wins (int): The number of wins the summoner has.
+        - loses (int): The number of losses the summoner has.
+        - total_games (int): The total number of games the summoner has played.
+        - winrate (float): The win rate of the summoner.
+        - kills (int): The number of kills the summoner has.
+        - deaths (int): The number of deaths the summoner has.
+        - assists (int): The number of assists the summoner has.
+        - kda (float): The kill-death-assist ratio of the summoner.
+        """
+
         def __init__(self, stats):
             self.id = stats[0]
             self.name = stats[1]
@@ -69,18 +118,42 @@ class ladder_custom():
             self.kda = stats[9]  
 
         def test_id(self, id_tested):
+            """
+            Check if the summoner's ID matches the given ID.
+
+            Parameters:
+            - id_tested (int): The ID to test against.
+
+            Returns:
+            - bool: True if the summoner's ID matches the given ID, False otherwise.
+            """
             return self.id == id_tested
         
         def update_total_games(self):
+            """
+            Update the total number of games played by the summoner.
+            """
             self.total_games = self.wins + self.loses
 
         def update_winrate(self):
+            """
+            Update the win rate of the summoner.
+            """
             self.winrate = self.wins / self.total_games
 
         def update_kda(self):
+            """
+            Update the kill-death-assist ratio of the summoner.
+            """
             self.kda = (self.kills + self.assists) / self.deaths if self.deaths != 0 else (self.kills + self.assists)
 
         def to_row(self):
+            """
+            Convert the summoner object to a list representing a row of data.
+
+            Returns:
+            - list: A list containing the summoner's ID, name, wins, losses, total games, win rate, kills, deaths, assists, and kda.
+            """
             return [self.id, self.name, self.wins, self.loses, self.total_games, self.winrate, self.kills, self.deaths, self.assists, self.kda]
 
 
@@ -112,8 +185,8 @@ class ladder_custom():
         Updates the database with the provided champion stats, player stats, and match IDs.
 
         Args:
-            champions_stats (list): A list of tuples containing champion stats to be inserted into the 'champions' table.
-            player_stats (list): A list of tuples containing player stats to be inserted into the 'players' table.
+            champions_stats (list): A list of Champion instances to be inserted into the 'champions' table.
+            player_stats (list): A list of Summoner instances to be inserted into the 'players' table.
             match_db (list): A list of match IDs to be inserted into the 'matchIds' table.
 
         Returns:
@@ -208,57 +281,66 @@ class ladder_custom():
         sys.stdout.write(f'{True}')
 
     def delete_match(self, match_list):
-        champions_stats, player_stats, match_db = self.get_db_tables()
+            """
+            Deletes matches from the database and updates player and champion statistics.
 
-        for match in match_list:
-            if match not in match_db:
-                sys.stdout.write(f'{False}')
-                sys.exit()
-            
-            match_db.remove(match)
-            match_data = self.get_match_data(match)
-            player_data = match_data['info']['participants']
-            # on parcourt par participants
-            for player in player_data:
-                i = 0
-                ## première étape on s'occupe des stats pour chaque champion
-                ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
-                player_champion_id = str(player['championId'])
-                if self.test_table(player_champion_id, champions_stats):
-                    for index, champion in enumerate(champions_stats):
-                        if not champion.test_id(player_champion_id):
-                            continue
-                        if player['win']:
-                            champion.wins -= 1
-                        else:
-                            champion.loses -= 1
-                        champion.update_total_games()
-                        if champion.total_games == 0:
-                            champions_stats.pop(index)
-                            continue
-                        champion.update_winrate()
+            Args:
+                match_list (list): A list of matches to be deleted.
+
+            Returns:
+                None
+            """
+            champions_stats, player_stats, match_db = self.get_db_tables()
+
+            for match in match_list:
+                if match not in match_db:
+                    sys.stdout.write(f'{False}')
+                    sys.exit()
                 
-                player_summoner_id = player['summonerId']
-                if self.test_table(player_summoner_id, player_stats):
-                    for index, summoner in enumerate(player_stats):
-                        if not summoner.test_id(player_summoner_id):
-                            continue
-                        if player['win']:
-                            summoner.wins -= 1
-                        else:
-                            summoner.loses -= 1
-                        summoner.update_total_games()
-                        if summoner.total_games == 0:
-                            player_stats.pop(index)
-                            continue
-                        summoner.update_winrate()
-                        summoner.kills -= player['kills']
-                        summoner.deaths -= player['deaths']
-                        summoner.assists -= player['assists']
-                        summoner.update_kda()
+                match_db.remove(match)
+                match_data = self.get_match_data(match)
+                player_data = match_data['info']['participants']
+                # on parcourt par participants
+                for player in player_data:
+                    i = 0
+                    ## première étape on s'occupe des stats pour chaque champion
+                    ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
+                    player_champion_id = str(player['championId'])
+                    if self.test_table(player_champion_id, champions_stats):
+                        for index, champion in enumerate(champions_stats):
+                            if not champion.test_id(player_champion_id):
+                                continue
+                            if player['win']:
+                                champion.wins -= 1
+                            else:
+                                champion.loses -= 1
+                            champion.update_total_games()
+                            if champion.total_games == 0:
+                                champions_stats.pop(index)
+                                continue
+                            champion.update_winrate()
+                    
+                    player_summoner_id = player['summonerId']
+                    if self.test_table(player_summoner_id, player_stats):
+                        for index, summoner in enumerate(player_stats):
+                            if not summoner.test_id(player_summoner_id):
+                                continue
+                            if player['win']:
+                                summoner.wins -= 1
+                            else:
+                                summoner.loses -= 1
+                            summoner.update_total_games()
+                            if summoner.total_games == 0:
+                                player_stats.pop(index)
+                                continue
+                            summoner.update_winrate()
+                            summoner.kills -= player['kills']
+                            summoner.deaths -= player['deaths']
+                            summoner.assists -= player['assists']
+                            summoner.update_kda()
 
-        self.update_database(champions_stats, player_stats, match_db)
-        sys.stdout.write(f'{True}')
+            self.update_database(champions_stats, player_stats, match_db)
+            sys.stdout.write(f'{True}')
 
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
@@ -326,12 +408,11 @@ class ladder_custom():
     #test si un élément est présent dans un tableau
     def test_table(self, id, list):
         """
-        Check if a given ID exists in a list of lists at a specific index.
+        Check if an instance with the given ID exists in a list of Champions or Summoner instances.
 
         Parameters:
         - id (str): The ID to search for.
-        - list (list): The list of lists to search in.
-        - index (int): The index at which to check for the ID.
+        - list (list): The list to search in.
 
         Returns:
         - bool: True if the ID is found, False otherwise.
