@@ -14,7 +14,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply();
         const clientAvatar = interaction.client.user.avatarURL();
         const memberName = interaction.member.displayName;
         const memberAvatar = interaction.member.user.avatarURL();
@@ -42,7 +42,7 @@ module.exports = {
                         .setThumbnail(`https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${stats.name}.png`)
                         .setAuthor({ name: memberName, iconURL: memberAvatar })
                         .addFields(
-                            { name: 'Winrate', value: `**${stats.winrate}%** (${stats.wins}/${stats.loses})` },
+                            { name: 'Winrate', value: `**${Math.round(stats.winrate * 100) / 100}%** (${stats.wins}/${stats.loses})` },
                         )
                         .setTimestamp()
                         .setFooter({ text: 'Lollipop', iconURL: clientAvatar });

@@ -12,7 +12,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply();
 
         const matchId = interaction.options.getString("match_id");
 
@@ -22,7 +22,7 @@ module.exports = {
             var response = data.toString().includes("True");
             console.log(data.toString());
             if (response) {
-                interaction.editReply("Match added successfully!");
+                interaction.editReply(`Match ${matchId} added successfully!`);
             } else {
                 interaction.editReply("Couldn't add your match to the database. Please check the match id.");
             }

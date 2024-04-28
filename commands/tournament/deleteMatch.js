@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { spawn } = require("child_process");
+const { match } = require("assert");
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -12,7 +13,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply();
 
         const matchId = interaction.options.getString("match_id");
 
@@ -22,7 +23,7 @@ module.exports = {
             var response = data.toString().includes("True");
             console.log(data.toString());
             if (response) {
-                interaction.editReply("Match deleted successfully!");
+                interaction.editReply(`Match ${matchId} deleted successfully!`);
             } else {
                 interaction.editReply("Couldn't delete your match from the database. Please check the match id.");
             }

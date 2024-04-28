@@ -20,7 +20,7 @@ module.exports = {
                 .setRequired(true)
         ),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply();
         const clientAvatar = interaction.client.user.avatarURL();
         const memberName = interaction.member.displayName;
         const memberAvatar = interaction.member.user.avatarURL();
@@ -45,11 +45,11 @@ module.exports = {
 
                     const messageEmbed = new EmbedBuilder()
                         .setColor(0x0099FF)
-                        .setTitle(`${summonerName}#${summonerTag}`)
+                        .setTitle(`${stats.name}#${summonerTag}`)
                         .setThumbnail(`https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${stats.icon_id}.png`)
                         .setAuthor({ name: memberName, iconURL: memberAvatar })
                         .addFields(
-                            { name: 'Winrate', value: `**${stats.winrate}** (${stats.wins}/${stats.loses})` },
+                            { name: 'Winrate', value: `**${Math.round(stats.winrate * 100) / 100}%** (${stats.wins}/${stats.loses})` },
                             { name: 'Number of games', value: `**${stats.total_games}**` },
                             { name: 'KDA', value: `**${Math.round(stats.kda * 100) / 100}** (${stats.kills}/${stats.deaths}/${stats.assists})` },
                         )
