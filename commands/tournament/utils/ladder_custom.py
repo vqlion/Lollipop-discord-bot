@@ -155,6 +155,22 @@ class ladder_custom():
             - list: A list containing the summoner's ID, name, wins, losses, total games, win rate, kills, deaths, assists, and kda.
             """
             return [self.id, self.name, self.wins, self.loses, self.total_games, self.winrate, self.kills, self.deaths, self.assists, self.kda]
+        
+        def to_json(self, icon_id=None):
+            data = {
+                'id': self.id,
+                'name': self.name,
+                'wins': self.wins,
+                'loses': self.loses,
+                'total_games': self.total_games,
+                'winrate': self.winrate,
+                'kills': self.kills,
+                'deaths': self.deaths,
+                'assists': self.assists,
+                'kda': self.kda,
+                'icon_id': icon_id
+            }
+            return json.dumps(data)
 
 
     def get_db_tables(self):
@@ -342,6 +358,42 @@ class ladder_custom():
             self.update_database(champions_stats, player_stats, match_db)
             sys.stdout.write(f'{True}')
 
+    def player_stats(self, player_name, player_tag):
+        player_puuid = self.get_summoner_puuid(player_name, player_tag)
+        player_puuid = player_puuid['puuid']
+        summoner_id = self.get_summoner_id(player_puuid)
+        summoner_icon_id = summoner_id['profileIconId']
+        summoner_id = summoner_id['id']
+
+        _, player_stats, _ = self.get_db_tables()
+
+        if not self.test_table(summoner_id, player_stats):
+            sys.stdout.write(f'{False}')
+            sys.exit()
+
+        for player in player_stats:
+            if not player.test_id(summoner_id):
+                continue
+            sys.stdout.write(f'{player.to_json(summoner_icon_id)}')
+
+    def get_summoner_puuid(self, name, tag):
+        url = f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{name}/{tag}?api_key={self.api_key}'
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+        else: 
+            sys.stdout.write(f'{False}')
+            sys.exit()
+
+    def get_summoner_id(self, puuid):
+        url = f'https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}?api_key={self.api_key}'
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+        else: 
+            sys.stdout.write(f'{False}')
+            sys.exit()
+    
     ## La fonction va cherche la base de donnée json dabs l'API Riot
     ## Match v5 est le module utilisé sur le site de Riot : https://developer.riotmatchs.com/apis#match-v5
     def get_match_data(self, match_id):
