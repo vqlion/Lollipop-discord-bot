@@ -34,6 +34,56 @@ class ladder_custom():
         self.api_key = API_KEY
         self.create_database()
 
+    class Champion():
+        def __init__(self, stats):
+            self.name = stats[0]
+            self.wins = stats[1]
+            self.loses = stats[2]
+            self.total_games = stats[3]
+            self.winrate = stats[4]
+            self.id = stats[5]
+
+        def test_id(self, id_tested):
+            return self.id == id_tested
+        
+        def update_total_games(self):
+            self.total_games = self.wins + self.loses
+
+        def update_winrate(self):
+            self.winrate = self.wins / self.total_games
+
+        def to_row(self):
+            return [self.name, self.wins, self.loses, self.total_games, self.winrate, self.id]
+
+    class Summoner():
+        def __init__(self, stats):
+            self.id = stats[0]
+            self.name = stats[1]
+            self.wins = stats[2]
+            self.loses = stats[3]
+            self.total_games = stats[4]
+            self.winrate = stats[5]
+            self.kills = stats[6]
+            self.deaths = stats[7]
+            self.assists = stats[8]
+            self.kda = stats[9]  
+
+        def test_id(self, id_tested):
+            return self.id == id_tested
+        
+        def update_total_games(self):
+            self.total_games = self.wins + self.loses
+
+        def update_winrate(self):
+            self.winrate = self.wins / self.total_games
+
+        def update_kda(self):
+            self.kda = (self.kills + self.assists) / self.deaths if self.deaths != 0 else (self.kills + self.assists)
+
+        def to_row(self):
+            return [self.id, self.name, self.wins, self.loses, self.total_games, self.winrate, self.kills, self.deaths, self.assists, self.kda]
+
+
     def get_db_tables(self):
             """
             Retrieves data from the database tables.
@@ -47,10 +97,10 @@ class ladder_custom():
             c = conn.cursor()
             c.execute ('SELECT * FROM champions')
             data = c.fetchall()
-            champions_stats = [list(row) for row in data]
+            champions_stats = [self.Champion(row) for row in data]
             c.execute ('SELECT * FROM players')
             data = c.fetchall()
-            player_stats = [list(row1) for row1 in data]
+            player_stats = [self.Summoner(row1) for row1 in data]
             c.execute ('SELECT * FROM matchIds')
             data = c.fetchall()
             match_db = [list(row2)[0] for row2 in data]
@@ -76,6 +126,9 @@ class ladder_custom():
         c.execute('DELETE FROM champions')
         c.execute('DELETE FROM players')
         c.execute('DELETE FROM matchIds')
+
+        champions_stats = [champion.to_row() for champion in champions_stats]
+        player_stats = [summoner.to_row() for summoner in player_stats]
 
         # Insert the updated data
         for row in champions_stats:
@@ -112,42 +165,44 @@ class ladder_custom():
                 for player in player_data:
                     ## première étape on s'occupe des stats pour chaque champion
                     ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
-                    if self.test_table(str(player['championId']), champions_stats, 5) == False:
-                        champions_stats.append([player['championName'], 0, 0, 0, 0.0, player['championId']])
+                    player_champion_id = str(player['championId'])
+                    if not self.test_table(player_champion_id, champions_stats):
+                        champions_stats.append(self.Champion([player['championName'], 0, 0, 0, 0.0, player['championId']]))
                     i = len(champions_stats) - 1
-                    for j in range(len(champions_stats)):
-                        if str(player['championId']) == champions_stats[j][5]:
+                    for j, champion in enumerate(champions_stats):
+                        if champion.test_id(player_champion_id):
                             i = j
                             break
                     if player['win']:
-                        champions_stats[i][1] += 1
+                        champions_stats[i].wins += 1
                     else:
-                        champions_stats[i][2] += 1
-                    champions_stats[i][3] = champions_stats[i][2] + champions_stats[i][1]
-                    champions_stats[i][4] = champions_stats[i][1] / champions_stats[i][3] * 100
+                        champions_stats[i].loses += 1
+
+                    champions_stats[i].update_total_games()
+                    champions_stats[i].update_winrate()
 
                     ## ensuite on s'occupe des stats par joueur
                     ## si il n'y a pas déjà le champion (par summonerID) dans la base de données (ici une liste 2d) on rajoute une ligne pour le joueur
-                    if self.test_table(player['summonerId'], player_stats, 0) == False:
-                        player_stats.append([player['summonerId'], player['riotIdGameName'], 0, 0, 0, 0.0, 0, 0, 0, 0.0])
+                    player_summoner_id = player['summonerId']
+                    if not self.test_table(player_summoner_id, player_stats):
+                        player_stats.append(self.Summoner([player['summonerId'], player['riotIdGameName'], 0, 0, 0, 0.0, 0, 0, 0, 0.0]))
                     i = len(player_stats) - 1
-                    for j in range(len(player_stats)):
-                        if player['summonerId'] == player_stats[j][0]:
+                    for j, summoner in enumerate(player_stats):
+                        if summoner.test_id(player_summoner_id):
                             i = j
                             break
                     if player['win']:
-                        player_stats[i][2] += 1
+                        player_stats[i].wins += 1
                     else:
-                        player_stats[i][3] += 1
-                    player_stats[i][4] = player_stats[i][3] + player_stats[i][2]
-                    player_stats[i][5] = player_stats[i][2] / player_stats[i][4] * 100
-                    player_stats[i][6] += player['kills']
-                    player_stats[i][7] += player['deaths']
-                    player_stats[i][8] += player['assists']
-                    if player_stats[i][7] != 0:
-                        player_stats[i][9] = (player_stats[i][6] + player_stats[i][8]) / player_stats[i][7]
-                    else:
-                        player_stats[i][9] = player_stats[i][6] + player_stats[i][8]
+                        player_stats[i].loses += 1
+
+                    player_stats[i].update_total_games()
+                    player_stats[i].update_winrate()
+
+                    player_stats[i].kills += player['kills']
+                    player_stats[i].deaths += player['deaths']
+                    player_stats[i].assists += player['assists']
+                    player_stats[i].update_kda()
 
         self.update_database(champions_stats, player_stats, match_db)
         sys.stdout.write(f'{True}')
@@ -159,6 +214,7 @@ class ladder_custom():
             if match not in match_db:
                 sys.stdout.write(f'{False}')
                 sys.exit()
+            
             match_db.remove(match)
             match_data = self.get_match_data(match)
             player_data = match_data['info']['participants']
@@ -167,40 +223,40 @@ class ladder_custom():
                 i = 0
                 ## première étape on s'occupe des stats pour chaque champion
                 ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
-                if self.test_table(str(player['championId']), champions_stats, 5):
+                player_champion_id = str(player['championId'])
+                if self.test_table(player_champion_id, champions_stats):
                     for index, champion in enumerate(champions_stats):
-                        if champion[5] != str(player['championId']):
+                        if not champion.test_id(player_champion_id):
                             continue
-                        champion[3] -= 1
-                        if champion[3] == 0:
+                        if player['win']:
+                            champion.wins -= 1
+                        else:
+                            champion.loses -= 1
+                        champion.update_total_games()
+                        if champion.total_games == 0:
                             champions_stats.pop(index)
                             continue
-                        if player['win']:
-                            champion[1] -= 1
-                        else:
-                            champion[2] -= 1
-                        champion[4] = champion[1] / champion[3] * 100
-
-                if self.test_table(player['summonerId'], player_stats, 0):
+                        champion.update_winrate()
+                
+                player_summoner_id = player['summonerId']
+                if self.test_table(player_summoner_id, player_stats):
                     for index, summoner in enumerate(player_stats):
-                        if summoner[0] != player['summonerId']:
+                        if not summoner.test_id(player_summoner_id):
                             continue
-                        summoner[4] -= 1
-                        if summoner[4] == 0:
+                        if player['win']:
+                            summoner.wins -= 1
+                        else:
+                            summoner.loses -= 1
+                        summoner.update_total_games()
+                        if summoner.total_games == 0:
                             player_stats.pop(index)
                             continue
-                        if player['win']:
-                            summoner[2] -= 1
-                        else:
-                            summoner[3] -= 1
-                        summoner[5] = summoner[2] / summoner[4] * 100
-                        summoner[6] -= player['kills']
-                        summoner[7] -= player['deaths']
-                        summoner[8] -= player['assists']
-                        if summoner[7] != 0:
-                            summoner[9] = (summoner[6] + summoner[8]) / summoner[7]
-                        else:
-                            summoner[9] = summoner[6] + summoner[8]
+                        summoner.update_winrate()
+                        summoner.kills -= player['kills']
+                        summoner.deaths -= player['deaths']
+                        summoner.assists -= player['assists']
+                        summoner.update_kda()
+
         self.update_database(champions_stats, player_stats, match_db)
         sys.stdout.write(f'{True}')
 
@@ -268,7 +324,7 @@ class ladder_custom():
         conn.close()
     
     #test si un élément est présent dans un tableau
-    def test_table(self, id, list, index):
+    def test_table(self, id, list):
         """
         Check if a given ID exists in a list of lists at a specific index.
 
@@ -281,8 +337,7 @@ class ladder_custom():
         - bool: True if the ID is found, False otherwise.
         """
         test = False
-        for i in range(len(list)):
-            if id == str(list[i][index]):
-                test = True
-                break
+        for elem in list:
+            test = elem.test_id(id)
+            if test: return test
         return test
