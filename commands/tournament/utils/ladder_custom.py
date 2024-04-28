@@ -20,6 +20,7 @@ import requests
 import os
 import sys
 import json
+from operator import attrgetter
 
 with open('config.json') as f:
     config = json.load(f)
@@ -98,6 +99,17 @@ class ladder_custom():
                 'id': self.id
             }
             return json.dumps(data)
+        
+        def to_dict(self):
+            data = {
+                'name': self.name,
+                'wins': self.wins,
+                'loses': self.loses,
+                'total_games': self.total_games,
+                'winrate': self.winrate,
+                'id': self.id
+            }
+            return data
 
     class Summoner():
         """
@@ -182,6 +194,22 @@ class ladder_custom():
                 'icon_id': icon_id
             }
             return json.dumps(data)
+        
+        def to_dict(self, icon_id=None):
+            data = {
+                'id': self.id,
+                'name': self.name,
+                'wins': self.wins,
+                'loses': self.loses,
+                'total_games': self.total_games,
+                'winrate': self.winrate,
+                'kills': self.kills,
+                'deaths': self.deaths,
+                'assists': self.assists,
+                'kda': self.kda,
+                'icon_id': icon_id
+            }
+            return data
 
 
     def get_db_tables(self):
@@ -396,6 +424,23 @@ class ladder_custom():
                 return
 
         sys.stdout.write(f'{False}')
+
+    def leaderboard(self):
+        _, player_stats, _ = self.get_db_tables()
+
+        leaderboard_list = []
+        max_leaderboard_length = 10
+
+        for player in player_stats:
+            if player.total_games < 3:
+                continue
+            leaderboard_list.append(player)
+
+        leaderboard_list.sort(key=attrgetter('winrate', 'kda'), reverse=True)
+        leaderboard_list = leaderboard_list[:max_leaderboard_length]
+
+        leaderboard_list = [p.to_dict() for p in leaderboard_list]
+        sys.stdout.write(f'{json.dumps(leaderboard_list)}')
 
     def get_summoner_puuid(self, name, tag):
         url = f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{name}/{tag}?api_key={self.api_key}'
