@@ -1,6 +1,7 @@
 node_modules/
 config.json
 song_list.json
+status_messages.json
 nohup.out
 start-bot.sh
 data/
