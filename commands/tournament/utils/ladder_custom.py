@@ -90,6 +90,12 @@ class ladder_custom():
             return [self.name, self.wins, self.loses, self.total_games, self.winrate, self.id]
         
         def to_json(self):
+            """
+            Converts the Champion object to a JSON string.
+
+            Returns:
+                str: A JSON string representation of the object.
+            """
             data = {
                 'name': self.name,
                 'wins': self.wins,
@@ -101,6 +107,12 @@ class ladder_custom():
             return json.dumps(data)
         
         def to_dict(self):
+            """
+            Converts the Champion object to a dictionary.
+
+            Returns:
+                dict: A dictionary representation of the object.
+            """
             data = {
                 'name': self.name,
                 'wins': self.wins,
@@ -180,6 +192,15 @@ class ladder_custom():
             return [self.id, self.name, self.wins, self.loses, self.total_games, self.winrate, self.kills, self.deaths, self.assists, self.kda]
         
         def to_json(self, icon_id=None):
+            """
+            Converts the Summoner object to a JSON string.
+
+            Args:
+                icon_id (int, optional): The ID of the player's icon. Defaults to None.
+
+            Returns:
+                str: A JSON string representing the ladder_custom object.
+            """
             data = {
                 'id': self.id,
                 'name': self.name,
@@ -196,6 +217,15 @@ class ladder_custom():
             return json.dumps(data)
         
         def to_dict(self, icon_id=None):
+            """
+            Converts the object attributes into a dictionary.
+
+            Args:
+                icon_id (int, optional): The ID of the player's icon. Defaults to None.
+
+            Returns:
+                dict: A dictionary containing the object attributes.
+            """
             data = {
                 'id': self.id,
                 'name': self.name,
@@ -398,6 +428,16 @@ class ladder_custom():
             sys.stdout.write(f'{True}')
 
     def player_stats(self, player_name, player_tag):
+        """
+        Retrieves the player statistics based on the given player name and tag.
+
+        Args:
+            player_name (str): The name of the player.
+            player_tag (str): The tag of the player.
+
+        Returns:
+            str: The player's stats in JSON format.
+        """
         player_puuid = self.get_summoner_puuid(player_name, player_tag)
         player_puuid = player_puuid['puuid']
         summoner_id = self.get_summoner_id(player_puuid)
@@ -416,6 +456,16 @@ class ladder_custom():
             sys.stdout.write(f'{player.to_json(summoner_icon_id)}')
 
     def champion_stats(self, champion_name):
+        """
+        Retrieves the statistics of a specific champion.
+
+        Args:
+            champion_name (str): The name of the champion.
+
+        Returns:
+            False: If the champion is not found in the statistics.
+            str: The JSON representation of the champion's statistics.
+        """
         champions_stats, _, _ = self.get_db_tables()
 
         for champion in champions_stats:
@@ -426,6 +476,12 @@ class ladder_custom():
         sys.stdout.write(f'{False}')
 
     def leaderboard(self):
+        """
+        Retrieves the leaderboard of players based on their winrate/kda.
+
+        Returns:
+            str: A JSON string representing the leaderboard list.
+        """
         _, player_stats, _ = self.get_db_tables()
 
         leaderboard_list = []
@@ -443,6 +499,20 @@ class ladder_custom():
         sys.stdout.write(f'{json.dumps(leaderboard_list)}')
 
     def get_summoner_puuid(self, name, tag):
+        """
+        Retrieves the PUUID of a summoner.
+
+        Args:
+            name (str): The summoner's name.
+            tag (str): The summoner's tag.
+
+        Returns:
+            dict: A dictionary containing the summoner's PUUID.
+
+        Raises:
+            SystemExit: If the API request fails.
+
+        """
         url = f'https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{name}/{tag}?api_key={self.api_key}'
         response = requests.get(url)
         if response.status_code == 200:
@@ -452,6 +522,19 @@ class ladder_custom():
             sys.exit()
 
     def get_summoner_id(self, puuid):
+        """
+        Retrieves the summoner ID associated with the given PUUID.
+
+        Args:
+            puuid (str): The PUUID of the summoner.
+
+        Returns:
+            dict: A dictionary containing the summoner information if the request is successful.
+
+        Raises:
+            SystemExit: If tthe API request fails.
+
+        """
         url = f'https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}?api_key={self.api_key}'
         response = requests.get(url)
         if response.status_code == 200:
