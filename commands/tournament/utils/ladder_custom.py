@@ -366,66 +366,66 @@ class ladder_custom():
         sys.stdout.write(f'{True}')
 
     def delete_match(self, match_list):
-            """
-            Deletes matches from the database and updates player and champion statistics.
+        """
+        Deletes matches from the database and updates player and champion statistics.
 
-            Args:
-                match_list (list): A list of matches to be deleted.
+        Args:
+            match_list (list): A list of matches to be deleted.
 
-            Returns:
-                None
-            """
-            champions_stats, player_stats, match_db = self.get_db_tables()
+        Returns:
+            None
+        """
+        champions_stats, player_stats, match_db = self.get_db_tables()
 
-            for match in match_list:
-                if match not in match_db:
-                    sys.stdout.write(f'{False}')
-                    sys.exit()
+        for match in match_list:
+            if match not in match_db:
+                sys.stdout.write(f'{False}')
+                sys.exit()
+            
+            match_db.remove(match)
+            match_data = self.get_match_data(match)
+            player_data = match_data['info']['participants']
+            # on parcourt par participants
+            for player in player_data:
+                i = 0
+                ## première étape on s'occupe des stats pour chaque champion
+                ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
+                player_champion_id = str(player['championId'])
+                if self.test_table(player_champion_id, champions_stats):
+                    for index, champion in enumerate(champions_stats):
+                        if not champion.test_id(player_champion_id):
+                            continue
+                        if player['win']:
+                            champion.wins -= 1
+                        else:
+                            champion.loses -= 1
+                        champion.update_total_games()
+                        if champion.total_games == 0:
+                            champions_stats.pop(index)
+                            continue
+                        champion.update_winrate()
                 
-                match_db.remove(match)
-                match_data = self.get_match_data(match)
-                player_data = match_data['info']['participants']
-                # on parcourt par participants
-                for player in player_data:
-                    i = 0
-                    ## première étape on s'occupe des stats pour chaque champion
-                    ## si il n'y a pas déjà le champion (par championId) dans la base de données (ici une liste 2d) on rajoute une ligne pour le champion
-                    player_champion_id = str(player['championId'])
-                    if self.test_table(player_champion_id, champions_stats):
-                        for index, champion in enumerate(champions_stats):
-                            if not champion.test_id(player_champion_id):
-                                continue
-                            if player['win']:
-                                champion.wins -= 1
-                            else:
-                                champion.loses -= 1
-                            champion.update_total_games()
-                            if champion.total_games == 0:
-                                champions_stats.pop(index)
-                                continue
-                            champion.update_winrate()
-                    
-                    player_summoner_id = player['summonerId']
-                    if self.test_table(player_summoner_id, player_stats):
-                        for index, summoner in enumerate(player_stats):
-                            if not summoner.test_id(player_summoner_id):
-                                continue
-                            if player['win']:
-                                summoner.wins -= 1
-                            else:
-                                summoner.loses -= 1
-                            summoner.update_total_games()
-                            if summoner.total_games == 0:
-                                player_stats.pop(index)
-                                continue
-                            summoner.update_winrate()
-                            summoner.kills -= player['kills']
-                            summoner.deaths -= player['deaths']
-                            summoner.assists -= player['assists']
-                            summoner.update_kda()
+                player_summoner_id = player['summonerId']
+                if self.test_table(player_summoner_id, player_stats):
+                    for index, summoner in enumerate(player_stats):
+                        if not summoner.test_id(player_summoner_id):
+                            continue
+                        if player['win']:
+                            summoner.wins -= 1
+                        else:
+                            summoner.loses -= 1
+                        summoner.update_total_games()
+                        if summoner.total_games == 0:
+                            player_stats.pop(index)
+                            continue
+                        summoner.update_winrate()
+                        summoner.kills -= player['kills']
+                        summoner.deaths -= player['deaths']
+                        summoner.assists -= player['assists']
+                        summoner.update_kda()
 
-            self.update_database(champions_stats, player_stats, match_db)
-            sys.stdout.write(f'{True}')
+        self.update_database(champions_stats, player_stats, match_db)
+        sys.stdout.write(f'{True}')
 
     def player_stats(self, player_name, player_tag):
         """
