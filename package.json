@@ -10,8 +10,8 @@
     "type": "git",
     "url": "https://github.com/vqlion/Lollipop-discord-bot.git"
   },
-  "author": "vql vql.dev@vqlion.me",
-  "license": "ISC",
+  "author": "vql dev@vqlion.fr",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/vqlion/Lollipop-discord-bot/issues"
   },

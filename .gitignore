@@ -4,3 +4,6 @@ song_list.json
 status_messages.json
 nohup.out
 start-bot.sh
+data/
+__pycache__/
+.vscode/

@@ -2,6 +2,6 @@
     "token": "<YOUR_TOKEN>",
     "clientId": "<YOUR_CLIENT_ID>",
     "special_guilds": [],
-    "youtube_api_key": "<YOUR_API_KEY>"
-
+    "youtube_api_key": "<YOUR_API_KEY>",
+    "riot_api_key": "<YOUR_API_KEY>"
 }

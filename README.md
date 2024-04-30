@@ -18,6 +18,15 @@ Lollipop is my discord bot, built with discord.js.
   - Delete a lot of messages (purge)
   - Order channels alphabetically
   - Protect a server from a raid (blocks all access to any channel)
+
+The bot is able to track League of Legends games from a 'tournament'. We use that because we do a lot of 5v5 games on our server. The games have to be tournament games.
+
+- Tournament
+  - Add a match to the database
+  - Delete a match from the database
+  - Display the leaderboard
+  - Display the stats of a player
+  - Display the stats of a champion
 - Misc (only if the guild is marked as special guild in ```config.json```)
   - Deletes any voice message on the server (the feature we all wanted)
   - Responds "feur" to any message with "quoi"
@@ -30,7 +39,7 @@ Clone the repository:
 ```bash
 git clone https://github.com/vqlion/Lollipop-discord-bot.git
 ```
-Create a file name ```config.json``` based on the ```config.example.json```. Put your bot's [authentification token and application ID](https://discord.com/developers/docs/getting-started), and your [youtube API key](https://console.cloud.google.com/apis/) (youtube API key is optional, just to fetch the song's title when a URL is passed).
+Create a file name ```config.json``` based on the ```config.example.json```. Put your bot's [authentification token and application ID](https://discord.com/developers/docs/getting-started), your [youtube API key](https://console.cloud.google.com/apis/) and your [riot games API key](https://developer.riotgames.com/) (youtube API key is optional, just to fetch the song's title when a URL is passed).
 
 Then install the dependencies and run the bot:
 ```bash
