@@ -26,8 +26,7 @@ with open('./config.json') as f:
     config = json.load(f)
     
 API_KEY = config['riot_api_key']
-
-DATABASE_FILE_PATH = '~/data/db_ladder.db'
+DATABASE_FILE_PATH = config['database_file']
 
 class ladder_custom():
     def __init__(self):

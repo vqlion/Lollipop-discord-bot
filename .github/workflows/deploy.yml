@@ -35,8 +35,5 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Create data folder
-        run: mkdir data
-
       - name: Start the bot
         run: RUNNER_TRACKING_ID="" && npm start
