@@ -4,7 +4,8 @@
   "description": "Lollipop discord bot, a discord bot to play music and more.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prestart": "node deploy-commands.js > ~/logs/lollipop_prestart_logs 2>&1",
+    "start": "node index.js > ~/logs/lollipop_logs 2>&1 & echo $! > ~/pids/lollipop.pid"
   },
   "repository": {
     "type": "git",

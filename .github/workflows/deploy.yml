@@ -1,0 +1,36 @@
+name: CD
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: ["master"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    runs-on: self-hosted
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+
+      - name: Create config json file
+        uses: jsdaniell/create-json@v1.2.3
+        with:
+          name: "config.json"
+          json: ${{ secrets.CONFIG_JSON }}
+
+      - name: Kill the former process
+        run: |
+          if test -f ~/pids/lollipop.pid; then
+              echo "lollipop.pid exists, killing process"
+              kill -9 $(cat ~/pids/lollipop.pid)
+          fi
+
+      - name: Start the bot
+        run: npm start
