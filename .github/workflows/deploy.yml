@@ -28,8 +28,8 @@ jobs:
       - name: Kill the former process
         run: |
           if test -f ~/pids/lollipop.pid; then
-              echo "lollipop.pid exists, killing process"
-              kill -9 $(cat ~/pids/lollipop.pid)
+              echo "pid file exists, checking process"
+              kill -0 $(cat ~/pids/lollipop.pid) &> /dev/null && (kill -9 $(cat ~/pids/lollipop.pid) && echo "process was killed") || echo "process was not running"
           fi
 
       - name: Install dependencies
