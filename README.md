@@ -44,8 +44,7 @@ Create a file name ```config.json``` based on the ```config.example.json```. Put
 Then install the dependencies and run the bot:
 ```bash
 npm install
-node deploy-commands.js
-node .
+npm start
 ```
 
 ## Team
