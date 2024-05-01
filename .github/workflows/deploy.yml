@@ -36,4 +36,4 @@ jobs:
         run: npm install
 
       - name: Start the bot
-        run: npm start
+        run: RUNNER_TRACKING_ID="" && npm start
