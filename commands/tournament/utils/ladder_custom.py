@@ -22,7 +22,7 @@ import sys
 import json
 from operator import attrgetter
 
-with open('config.json') as f:
+with open('../../../config.json') as f:
     config = json.load(f)
     
 API_KEY = config['riot_api_key']
