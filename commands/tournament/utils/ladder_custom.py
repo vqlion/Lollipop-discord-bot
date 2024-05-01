@@ -22,12 +22,12 @@ import sys
 import json
 from operator import attrgetter
 
-with open('../../../config.json') as f:
+with open('./config.json') as f:
     config = json.load(f)
     
 API_KEY = config['riot_api_key']
 
-DATABASE_FILE_PATH = '../../../data/db_ladder.db'
+DATABASE_FILE_PATH = './data/db_ladder.db'
 
 class ladder_custom():
     def __init__(self):
