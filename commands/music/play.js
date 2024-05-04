@@ -10,7 +10,7 @@ const {
     AudioPlayerStatus,
 } = require("@discordjs/voice");
 const fs = require("fs");
-const { youtube_api_key } = require('../../config.json')
+const { youtube_api_key, spotify_client_id, spotify_client_secret } = require('../../config.json')
 
 var clientAvatar; // Avatar (profile picture) of the bot
 let nextResourceIsAvailable = true;
@@ -138,7 +138,7 @@ module.exports = {
             }
             url = youtubeVideoInfo[0].url;
             title = youtubeVideoInfo[0].title;
-        } 
+        }
         if (isYoutubeVideoUrl(request)) {
             title = await getYoutubeVideoTitleFromUrl(url);
             if (!title) {
@@ -166,7 +166,7 @@ module.exports = {
 
             url = playlistVideosInfo[0].url;
             title = playlistVideosInfo[0].title;
-            playlistTitle = playlistInfo.title + ' - Youtube playlist';
+            playlistTitle = playlistInfo.title + ' (Youtube playlist)';
             // the first song is either gonna be played now or added to the list below
             // so remove it to not have it duplicated
             playlistVideosInfo.shift();
@@ -182,7 +182,7 @@ module.exports = {
                     setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
                 }).catch(console.error);
             }
-            playlistTitle = playlistInfo.title + ' - Deezer playlist';
+            playlistTitle = playlistInfo.title + ' (Deezer playlist)';
 
             const playlistSongInfos = playlistInfo['tracks']['data'];
             var playlistSongTitles = [];
@@ -211,6 +211,56 @@ module.exports = {
             var playlistSongTitles = [];
             for (index in playlistSongInfos) {
                 playlistSongTitles.push(`${playlistSongInfos[index]['title']} - ${playlistSongInfos[index]['artist']['name']}`);
+            }
+            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
+            url = playlistVideosInfo[0].url;
+            title = playlistVideosInfo[0].title;
+            playlistVideosInfo.shift();
+        }
+
+        if (isSpotifyPlaylistUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getSpotifyPlaylistInfoFromUrl(url);
+            if (!playlistInfo) {
+                return interaction.editReply(
+                    "Couldn't find any playlist matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            playlistTitle = playlistInfo.name + ' (Spotify playlist)';
+
+            const playlistSongInfos = playlistInfo['tracks']['items'];
+            var playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                var spotifyTrackName = playlistSongInfos[index]['track']['name'];
+                var spotifyTrackArtist = playlistSongInfos[index]['track']['artists'][0]['name'];
+                playlistSongTitles.push(`${spotifyTrackName} - ${spotifyTrackArtist}`);
+            }
+            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
+            url = playlistVideosInfo[0].url;
+            title = playlistVideosInfo[0].title;
+            playlistVideosInfo.shift();
+        }
+        
+        if (isSpotifyAlbumUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getSpotifyAlbumInfoFromUrl(url);
+            if (!playlistInfo) {
+                return interaction.editReply(
+                    "Couldn't find any album matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            playlistTitle = playlistInfo.name + ' - ' + playlistInfo['artists'][0]['name'];
+    
+            const playlistSongInfos = playlistInfo['tracks']['items'];
+            var playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                var spotifyTrackName = playlistSongInfos[index]['name'];
+                var spotifyTrackArtist = playlistSongInfos[index]['artists'][0]['name'];
+                playlistSongTitles.push(`${spotifyTrackName} - ${spotifyTrackArtist}`);
             }
             playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
             url = playlistVideosInfo[0].url;
@@ -416,6 +466,14 @@ function isDeezerAlbumUrl(url) {
     return url.match('^https:\/\/www\.deezer\.com\/.*\/album\/.*$');
 }
 
+function isSpotifyPlaylistUrl(url) {
+    return url.match('^https:\/\/open\.spotify\.com\/playlist\/.*$');
+}
+
+function isSpotifyAlbumUrl(url) {
+    return url.match('^https:\/\/open\.spotify\.com\/album\/.*$');
+}
+
 /**
  * Retrieves the video's title from a YouTube URL. Assumes a valid Youtube video url.
  * 
@@ -436,7 +494,7 @@ async function getYoutubeVideoTitleFromUrl(url) {
 }
 
 async function getDeezerPlaylistInfoFromUrl(url) {
-    const playlistId = url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/(.*?)(\/|&|$)')[1];
+    const playlistId = url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/(.*?)(\/|&|\\?|$)')[1];
     var response;
     try {
         response = await axios.get(`https://api.deezer.com/playlist/${playlistId}`);
@@ -444,7 +502,7 @@ async function getDeezerPlaylistInfoFromUrl(url) {
     } catch (error) {
         console.error(error);
     }
-    return response['data'];
+    return response ? response['data'] : null;
 }
 
 async function getDeezerAlbumInfoFromUrl(url) {
@@ -456,7 +514,51 @@ async function getDeezerAlbumInfoFromUrl(url) {
     } catch (error) {
         console.error(error);
     }
-    return response['data'];
+    return response ? response['data'] : null;
+}
+
+async function getSpotifyAccessToken() {
+    var response;
+    try {
+        response = await axios.post('https://accounts.spotify.com/api/token',
+            `grant_type=client_credentials&client_id=${spotify_client_id}&client_secret=${spotify_client_secret}`, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        if (response.status != 200) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['access_token'] : null;
+}
+
+async function getSpotifyPlaylistInfoFromUrl(url) {
+    const playlistId = url.match('^https:\/\/open\.spotify\.com\/playlist\/(.*?)(\/|&|\\?|$)')[1];
+    const accessToken = await getSpotifyAccessToken();
+    var response;
+    try {
+        response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}`}
+        });
+        if (response.status != 200) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data'] : null;
+}
+
+async function getSpotifyAlbumInfoFromUrl(url) {
+    const albumId = url.match('^https:\/\/open\.spotify\.com\/album\/(.*?)(\/|&|\\?|$)')[1];
+    const accessToken = await getSpotifyAccessToken();
+    var response;
+    try {
+        response = await axios.get(`https://api.spotify.com/v1/albums/${albumId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}`}
+        });
+        if (response.status != 200) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data'] : null;
 }
 
 async function getYoutubeVideoListFromTitles(titles) {
