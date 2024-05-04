@@ -166,9 +166,32 @@ module.exports = {
 
             url = playlistVideosInfo[0].url;
             title = playlistVideosInfo[0].title;
-            playlistTitle = playlistInfo.title;
+            playlistTitle = playlistInfo.title + ' - Youtube playlist';
             // the first song is either gonna be played now or added to the list below
             // so remove it to not have it duplicated
+            playlistVideosInfo.shift();
+        }
+
+        if (isDeezerPlaylistUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getDeezerPlaylistInfoFromUrl(url);
+            if (!playlistInfo) {
+                return interaction.editReply(
+                    "Couldn't find any playlist matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            playlistTitle = playlistInfo.title + ' - Deezer playlist';
+
+            const playlistSongInfos = playlistInfo['tracks']['data'];
+            var playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                playlistSongTitles.push(`${playlistSongInfos[index]['title']} - ${playlistSongInfos[index]['artist']['name']}`);
+            }
+            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
+            url = playlistVideosInfo[0].url;
+            title = playlistVideosInfo[0].title;
             playlistVideosInfo.shift();
         }
 
@@ -349,7 +372,7 @@ function isPlaylistUrl(url) {
  * @returns {boolean} - Returns true if the URL is a YouTube video URL, otherwise returns false.
  */
 function isYoutubeVideoUrl(url) {
-    return url.match('^https:\/\/www\.youtube\.com\/watch.*')
+    return url.match('^https:\/\/www\.youtube\.com\/watch.*');
 }
 
 /**
@@ -359,7 +382,15 @@ function isYoutubeVideoUrl(url) {
  * @returns {boolean} - Returns true if the URL is a YouTube playlist URL, otherwise returns false.
  */
 function isYoutubePlaylistUrl(url) {
-    return url.match('^https:\/\/www\.youtube\.com\/playlist.*')
+    return url.match('^https:\/\/www\.youtube\.com\/playlist.*');
+}
+
+function isDeezerPlaylistUrl(url) {
+    return url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/.*$');
+}
+
+function isDeezerAlbumUrl(url) {
+    return url.match('^https:\/\/www\.deezer\.com\/.*\/album\/.*$');
 }
 
 /**
@@ -379,6 +410,28 @@ async function getYoutubeVideoTitleFromUrl(url) {
     }
 
     return songTitle;
+}
+
+async function getDeezerPlaylistInfoFromUrl(url) {
+    const playlistId = url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/(.*?)(\/|&|$)')[1];
+    var response;
+    try {
+        response = await axios.get(`https://api.deezer.com/playlist/${playlistId}`);
+        if (response['data']['error']) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response['data'];
+}
+
+async function getYoutubeVideoListFromTitles(titles) {
+    var tmp = [];
+    for (index in titles) {
+        var youtubeVideoInfo = await playdl.search(titles[index], { limit: 1 });
+        if (youtubeVideoInfo.length == 0) continue;
+        tmp.push(youtubeVideoInfo[0]);
+    }
+    return tmp;
 }
 
 /**
