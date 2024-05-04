@@ -528,7 +528,7 @@ async function getSpotifyAccessToken() {
     } catch (error) {
         console.error(error);
     }
-    return response ? response['access_token'] : null;
+    return response ? response['data']['access_token'] : null;
 }
 
 async function getSpotifyPlaylistInfoFromUrl(url) {
