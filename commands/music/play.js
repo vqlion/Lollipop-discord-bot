@@ -195,6 +195,29 @@ module.exports = {
             playlistVideosInfo.shift();
         }
 
+        if (isDeezerAlbumUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getDeezerAlbumInfoFromUrl(url);
+            if (!playlistInfo) {
+                return interaction.editReply(
+                    "Couldn't find any album matching your request."
+                ).then(() => {
+                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+                }).catch(console.error);
+            }
+            playlistTitle = playlistInfo.title + ' - ' + playlistInfo.artist.name;
+
+            const playlistSongInfos = playlistInfo['tracks']['data'];
+            var playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                playlistSongTitles.push(`${playlistSongInfos[index]['title']} - ${playlistSongInfos[index]['artist']['name']}`);
+            }
+            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
+            url = playlistVideosInfo[0].url;
+            title = playlistVideosInfo[0].title;
+            playlistVideosInfo.shift();
+        }
+
         if (!player) {
             player = connection.state.subscription.player;
         }
@@ -417,6 +440,18 @@ async function getDeezerPlaylistInfoFromUrl(url) {
     var response;
     try {
         response = await axios.get(`https://api.deezer.com/playlist/${playlistId}`);
+        if (response['data']['error']) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response['data'];
+}
+
+async function getDeezerAlbumInfoFromUrl(url) {
+    const albumId = url.match('^https:\/\/www\.deezer\.com\/.*\/album\/(.*?)(\/|&|$)')[1];
+    var response;
+    try {
+        response = await axios.get(`https://api.deezer.com/album/${albumId}`);
         if (response['data']['error']) return null;
     } catch (error) {
         console.error(error);
