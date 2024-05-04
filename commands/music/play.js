@@ -138,8 +138,9 @@ module.exports = {
             }
             url = youtubeVideoInfo[0].url;
             title = youtubeVideoInfo[0].title;
-        } else if (!isPlaylistUrl(request)) {
-            title = await getSongTitleFromURL(url);
+        } 
+        if (isYoutubeVideoUrl(request)) {
+            title = await getYoutubeVideoTitleFromUrl(url);
             if (!title) {
                 return interaction.editReply(
                     "Couldn't find any video matching your request."
@@ -150,7 +151,7 @@ module.exports = {
         }
         var playlistInfo, playlistVideosInfo, playlistTitle;
         var requestIsPLaylist = false;
-        if (isPlaylistUrl(request)) {
+        if (isYoutubePlaylistUrl(request)) {
             requestIsPLaylist = true;
             try {
                 playlistInfo = await playdl.playlist_info(request, { incomplete: true });
@@ -342,24 +343,36 @@ function isPlaylistUrl(url) {
 }
 
 /**
- * Retrieves the song title from a YouTube URL.
+ * Checks if a given URL is a YouTube video URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a YouTube video URL, otherwise returns false.
+ */
+function isYoutubeVideoUrl(url) {
+    return url.match('^https:\/\/www\.youtube\.com\/watch.*')
+}
+
+/**
+ * Checks if a given URL is a YouTube playlist URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a YouTube playlist URL, otherwise returns false.
+ */
+function isYoutubePlaylistUrl(url) {
+    return url.match('^https:\/\/www\.youtube\.com\/playlist.*')
+}
+
+/**
+ * Retrieves the video's title from a YouTube URL. Assumes a valid Youtube video url.
  * 
  * @param {string} url - The YouTube URL.
  * @returns {Promise<string>} The song title.
  */
-async function getSongTitleFromURL(url) {
-    var id = url.substring(
-        url.indexOf("?v=") + 3
-    );
-    if (url.includes("&ab_channel")) { // this is ugly and there is probably a better way to do it. oh well :)
-        id = url.substring(
-            url.indexOf("?v=") + 3, // the +3 irritates me but I don't know how to fix it now
-            url.lastIndexOf("&")
-        );
-    }
+async function getYoutubeVideoTitleFromUrl(url) {
+    const videoId = url.match('\\?v=(.*?)(&|$)')[1];
     var songTitle;
     try {
-        const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${id}&key=${youtube_api_key}`);
+        const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${videoId}&key=${youtube_api_key}`);
         songTitle = response["data"]["items"][0]["snippet"]["title"]; // sorry about that
     } catch (error) {
         console.error(error);
