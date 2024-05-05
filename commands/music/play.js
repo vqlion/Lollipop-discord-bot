@@ -10,7 +10,7 @@ const {
     AudioPlayerStatus,
 } = require("@discordjs/voice");
 const fs = require("fs");
-const { youtube_api_key } = require('../../config.json')
+const { youtube_api_key, spotify_client_id, spotify_client_secret } = require('../../config.json')
 
 var clientAvatar; // Avatar (profile picture) of the bot
 let nextResourceIsAvailable = true;
@@ -19,11 +19,11 @@ const DELETE_REPLY_TIMEOUT = 5000;
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("play")
-        .setDescription("Play any song from Youtube")
+        .setDescription("Play any song or playlist from Youtube, or playlist from Deezer or Spotify")
         .addStringOption((option) =>
             option
                 .setName("song")
-                .setDescription("The song you want to play")
+                .setDescription("The song/playlist you want to play")
                 .setRequired(true)
         ),
     async execute(interaction) {
@@ -98,11 +98,7 @@ module.exports = {
 
 
         if (!channel) {
-            return interaction.editReply(
-                "You must be in a voice channel to perform this command."
-            ).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            return returnErrorMessageToUser(interaction, "You must be in a voice channel to perform this command.");
         }
 
         var connection = getVoiceConnection(channel.guildId);
@@ -117,58 +113,148 @@ module.exports = {
             player = createAudioPlayer();
             connection.subscribe(player);
         } else if (connection.joinConfig.channelId !== channel.id) {
-            return interaction.editReply(
-                "You must be in the same voice channel as the bot to perform this command."
-            ).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            return returnErrorMessageToUser(interaction, "You must be in the same voice channel as the bot to perform this command.");
         }
+
+        /**
+         * There begins the handling of the request, treating all possible cases.
+         * Not an url, youtube playlist, deezer playlist/album, spotify playlisty/album
+         * The goal of each of these is just to get the title and youtube url of the video, which will then be used to actually play the music.
+         */
 
         var url = request;
         var title = null;
 
+        var playlistInfo, playlistVideosInfo, playlistTitle;
+        var playlistSongTitles = [];
+        var requestIsPLaylist = false;
+        var requestIsYoutubePlaylist = false;
+
+        // Not an url, search the video on youtube from the request with playdl to get url and title
         if (!isValidHttpUrl(request)) {
             var youtubeVideoInfo = await playdl.search(request, { limit: 1 });
             if (youtubeVideoInfo.length == 0) {
-                return interaction.editReply(
-                    "Couldn't find any video matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
+                return returnErrorMessageToUser(interaction, "Couldn't find any video matching your request.");
             }
             url = youtubeVideoInfo[0].url;
             title = youtubeVideoInfo[0].title;
-        } else if (!isPlaylistUrl(request)) {
-            title = await getSongTitleFromURL(url);
+
+            // Youtube video url, just fetch the title to show it to the user, we'll use the url directly to play the music
+        } else if (isYoutubeVideoUrl(request)) {
+            title = await getYoutubeVideoTitleFromUrl(url);
             if (!title) {
-                return interaction.editReply(
-                    "Couldn't find any video matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
+                return returnErrorMessageToUser(interaction, "Couldn't find any video matching your request.");
             }
-        }
-        var playlistInfo, playlistVideosInfo, playlistTitle;
-        var requestIsPLaylist = false;
-        if (isPlaylistUrl(request)) {
+
+            // Youtube playlist url, get all the songs with playdl from the url and push their titles and urls to the list
+        } else if (isYoutubePlaylistUrl(request)) {
             requestIsPLaylist = true;
+            requestIsYoutubePlaylist = true;
             try {
                 playlistInfo = await playdl.playlist_info(request, { incomplete: true });
             } catch (error) {
-                return interaction.editReply(
-                    "Couldn't find any playlist matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
+                return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request.");
             }
             playlistVideosInfo = await playlistInfo.all_videos();
 
             url = playlistVideosInfo[0].url;
             title = playlistVideosInfo[0].title;
-            playlistTitle = playlistInfo.title;
+            playlistTitle = playlistInfo.title + ' (Youtube playlist)';
             // the first song is either gonna be played now or added to the list below
             // so remove it to not have it duplicated
             playlistVideosInfo.shift();
+
+            // Deezer playlist url, get all the songs with the deezer api to fetch their titles 
+            // Then look for their Youtube URL with playdl (looking from title) and put the titles and urls in the list
+        } else if (isDeezerPlaylistUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getDeezerPlaylistInfoFromUrl(url);
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
+            playlistTitle = playlistInfo.title + ' (Deezer playlist)';
+
+            /**
+             * Here we fetch the song titles and artist name and format them ({title} - {artist})
+             * These strings will then be used to look for a video matching the song on youtube
+             */
+            const playlistSongInfos = playlistInfo.tracks.data;
+            playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                playlistSongTitles.push(`${playlistSongInfos[index].title} - ${playlistSongInfos[index].artist.name}`);
+            }
+
+            /**
+             * Get the first song information to play it instantly. 
+             * This allows for later computation of the rest of the videos (because it takes a lot of time)
+             * That way the users don't have to wait 30 seconds for the playlist to start 
+             * Basically the bot plays the first song and computes the rest of the playlist in the background
+             * This pattern repeats for every playlist/album from now on.
+             */
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
+
+            // Deezer album is similar to Deezer playlist
+        } else if (isDeezerAlbumUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getDeezerAlbumInfoFromUrl(url);
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request.");
+
+            playlistTitle = playlistInfo.title + ' - ' + playlistInfo.artist.name;
+
+            const playlistSongInfos = playlistInfo.tracks.data;
+            playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                playlistSongTitles.push(`${playlistSongInfos[index].title} - ${playlistSongInfos[index].artist.name}`);
+            }
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
+
+            // Spotify playlist is similar to Deezer playlist
+        } else if (isSpotifyPlaylistUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getSpotifyPlaylistInfoFromUrl(url);
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
+            playlistTitle = playlistInfo.name + ' (Spotify playlist)';
+
+            const playlistSongInfos = playlistInfo.tracks.items;
+            playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                var spotifyTrackName = playlistSongInfos[index].track.name;
+                var spotifyTrackArtist = playlistSongInfos[index].track.artists[0].name;
+                playlistSongTitles.push(`${spotifyTrackName} - ${spotifyTrackArtist}`);
+            }
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
+
+            // Spotify album is similar to Deezer playlist
+        } else if (isSpotifyAlbumUrl(request)) {
+            requestIsPLaylist = true;
+            playlistInfo = await getSpotifyAlbumInfoFromUrl(url);
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");
+            playlistTitle = playlistInfo.name + ' - ' + playlistInfo.artists[0].name;
+
+            const playlistSongInfos = playlistInfo.tracks.items;
+            playlistSongTitles = [];
+            for (index in playlistSongInfos) {
+                var spotifyTrackName = playlistSongInfos[index].name;
+                var spotifyTrackArtist = playlistSongInfos[index].artists[0].name;
+                playlistSongTitles.push(`${spotifyTrackName} - ${spotifyTrackArtist}`);
+            }
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
+
+        } else {
+            return returnErrorMessageToUser(interaction, "Couldn't find anything matching your request");
         }
 
         if (!player) {
@@ -185,11 +271,14 @@ module.exports = {
         if (player.state.status == "playing") { // the bot is already playing something, add the song to the queue
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
 
-            await interaction.editReply(
-                `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
-            ).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            if (requestIsPLaylist) {
+                await sendMessageToUser(interaction,
+                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. Adding the songs to the queue... (this might take a while)`, false);
+            } else {
+                await sendMessageToUser(interaction,
+                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
+                );
+            }
 
             statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
@@ -198,9 +287,11 @@ module.exports = {
             [currentTitle, currentTitleUsername, currentTitleAvatar] = getCurrentSongName(guildId);
             setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
         } else {
-            await interaction.editReply(`Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`)`).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            if (requestIsPLaylist) {
+                await sendMessageToUser(interaction, `Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`). Adding the songs to the queue... (this might take a while)`, false);
+            } else {
+                await sendMessageToUser(interaction, `Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`)`);
+            }
 
             statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
@@ -220,7 +311,9 @@ module.exports = {
         // delayed adding the playlist songs to the list because it takes a bit of time
         // that way the bot can answer to the interaction before it times out
         if (requestIsPLaylist) {
+            if (!requestIsYoutubePlaylist) playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
             pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
+            await sendMessageToUser(interaction, `Finished adding the songs from \`${playlistTitle}\` to the queue.`);
         }
 
         connection.on(
@@ -316,6 +409,33 @@ module.exports = {
 };
 
 /**
+ * Sends an error message to the user and deletes it after a timeout.
+ * 
+ * @param {Interaction} interaction - The interaction object representing the user's interaction with the bot.
+ * @param {string} errorMessage - The error message to send to the user.
+ * @returns {Promise<void>} A promise that resolves after the error message is sent and deleted.
+ */
+function returnErrorMessageToUser(interaction, errorMessage) {
+    return interaction.editReply(errorMessage).then(() => {
+        setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+    }).catch(console.error);
+}
+
+/**
+ * Sends a message to the user in response to an interaction.
+ * 
+ * @param {Interaction} interaction - The interaction object representing the user's interaction with the bot.
+ * @param {string} message - The message to send to the user.
+ * @param {boolean} [deleteMessage=true] - Optional. Specifies whether to delete the message after a certain timeout.
+ * @returns {Promise<void>} - A promise that resolves when the message is sent and, if applicable, deleted.
+ */
+async function sendMessageToUser(interaction, message, deleteMessage = true) {
+    await interaction.editReply(message).then(() => {
+        if (deleteMessage) setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+    }).catch(console.error);
+}
+
+/**
  * Checks if a given string is a valid HTTP or HTTPS URL.
  *
  * @param {string} string The string to be checked.
@@ -342,30 +462,213 @@ function isPlaylistUrl(url) {
 }
 
 /**
- * Retrieves the song title from a YouTube URL.
+ * Checks if a given URL is a YouTube video URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a YouTube video URL, otherwise returns false.
+ */
+function isYoutubeVideoUrl(url) {
+    return url.match('^https:\/\/www\.youtube\.com\/watch.*');
+}
+
+/**
+ * Checks if a given URL is a YouTube playlist URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a YouTube playlist URL, otherwise returns false.
+ */
+function isYoutubePlaylistUrl(url) {
+    return url.match('^https:\/\/www\.youtube\.com\/playlist.*');
+}
+
+/**
+ * Checks if the given URL is a Deezer playlist URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Deezer playlist URL, otherwise returns false.
+ */
+function isDeezerPlaylistUrl(url) {
+    return url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/.*$');
+}
+/**
+ * Checks if the given URL is a Deezer album URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Deezer album URL, otherwise returns false.
+ */
+function isDeezerAlbumUrl(url) {
+    return url.match('^https:\/\/www\.deezer\.com\/.*\/album\/.*$');
+}
+
+/**
+ * Checks if the given URL is a Spotify playlist URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Spotify playlist URL, otherwise returns false.
+ */
+function isSpotifyPlaylistUrl(url) {
+    return url.match('^https:\/\/open\.spotify\.com\/playlist\/.*$');
+}
+
+/**
+ * Checks if the given URL is a Spotify album URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Spotify album URL, otherwise returns false.
+ */
+function isSpotifyAlbumUrl(url) {
+    return url.match('^https:\/\/open\.spotify\.com\/album\/.*$');
+}
+
+/**
+ * Retrieves the video's title from a YouTube URL. Assumes a valid Youtube video url.
  * 
  * @param {string} url - The YouTube URL.
  * @returns {Promise<string>} The song title.
  */
-async function getSongTitleFromURL(url) {
-    var id = url.substring(
-        url.indexOf("?v=") + 3
-    );
-    if (url.includes("&ab_channel")) { // this is ugly and there is probably a better way to do it. oh well :)
-        id = url.substring(
-            url.indexOf("?v=") + 3, // the +3 irritates me but I don't know how to fix it now
-            url.lastIndexOf("&")
-        );
-    }
+async function getYoutubeVideoTitleFromUrl(url) {
+    const videoId = url.match('\\?v=(.*?)(&|$)')[1];
     var songTitle;
     try {
-        const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${id}&key=${youtube_api_key}`);
+        const response = await axios.get(`https://www.googleapis.com/youtube/v3/videos?part=id%2C+snippet&id=${videoId}&key=${youtube_api_key}`);
         songTitle = response["data"]["items"][0]["snippet"]["title"]; // sorry about that
     } catch (error) {
         console.error(error);
     }
 
     return songTitle;
+}
+
+/**
+ * Retrieves information about a Deezer playlist from a given URL.
+ * 
+ * @param {string} url - The Deezer playlist URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the playlist information object, or null if an error occurs.
+ */
+async function getDeezerPlaylistInfoFromUrl(url) {
+    const playlistId = url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/(.*?)(\/|&|\\?|$)')[1];
+    var response;
+    try {
+        response = await axios.get(`https://api.deezer.com/playlist/${playlistId}`);
+        if (response['data']['error']) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data'] : null;
+}
+
+/**
+ * Retrieves information about a Deezer album from a given URL.
+ * 
+ * @param {string} url - The Deezer album URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the album information object, or null if an error occurs.
+ */
+async function getDeezerAlbumInfoFromUrl(url) {
+    const albumId = url.match('^https:\/\/www\.deezer\.com\/.*\/album\/(.*?)(\/|&|$)')[1];
+    var response;
+    try {
+        response = await axios.get(`https://api.deezer.com/album/${albumId}`);
+        if (response['data']['error']) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data'] : null;
+}
+
+/**
+ * Retrieves the access token for Spotify API.
+ * 
+ * @returns {string|null} The access token or null if an error occurred.
+ */
+async function getSpotifyAccessToken() {
+    var response;
+    try {
+        response = await axios.post('https://accounts.spotify.com/api/token',
+            `grant_type=client_credentials&client_id=${spotify_client_id}&client_secret=${spotify_client_secret}`, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        if (response.status != 200) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data']['access_token'] : null;
+}
+
+/**
+ * Retrieves information about a Spotify playlist from a given URL.
+ * 
+ * @param {string} url - The Spotify playlist URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the playlist information object, or null if an error occurs.
+ */
+async function getSpotifyPlaylistInfoFromUrl(url) {
+    const playlistId = url.match('^https:\/\/open\.spotify\.com\/playlist\/(.*?)(\/|&|\\?|$)')[1];
+    const accessToken = await getSpotifyAccessToken();
+    var response;
+    try {
+        response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (response.status != 200) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data'] : null;
+}
+
+/**
+ * Retrieves information about a Spotify album from a given URL.
+ * 
+ * @param {string} url - The Spotify album URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the album information object, or null if an error occurs.
+ */
+async function getSpotifyAlbumInfoFromUrl(url) {
+    const albumId = url.match('^https:\/\/open\.spotify\.com\/album\/(.*?)(\/|&|\\?|$)')[1];
+    const accessToken = await getSpotifyAccessToken();
+    var response;
+    try {
+        response = await axios.get(`https://api.spotify.com/v1/albums/${albumId}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (response.status != 200) return null;
+    } catch (error) {
+        console.error(error);
+    }
+    return response ? response['data'] : null;
+}
+
+/**
+ * Retrieves a list of YouTube video information based on the given titles.
+ * 
+ * @param {string[]} titles - An array of video titles to search for.
+ * @returns {Promise<playdl.YouTubeVideo[]>} - A promise that resolves to an array of YouTube video information objects.
+ */
+async function getYoutubeVideoListFromTitles(titles) {
+    var tmp = [];
+    for (index in titles) {
+        var youtubeVideoInfo = await playdl.search(titles[index], { limit: 1 });
+        if (youtubeVideoInfo.length == 0) continue;
+        tmp.push(youtubeVideoInfo[0]);
+    }
+    return tmp;
+}
+
+/**
+ * Retrieves the information of the first YouTube video from the given playlist song titles.
+ * 
+ * @param {string[]} playlistSongTitles - The array of playlist song titles.
+ * @returns {Promise<playdl.YouTubeVideo[]>} - A promise that resolves to an array of YouTube video information.
+ */
+async function getFirstYoutubeVideoInfo(playlistSongTitles) {
+    var searchValidVideoIndex = 0;
+    var firstYoutubeVideoInfo = await playdl.search(playlistSongTitles[searchValidVideoIndex], { limit: 1 });
+    playlistSongTitles.shift();
+    while (firstYoutubeVideoInfo.length == 0) {
+        searchValidVideoIndex++;
+        if (searchValidVideoIndex == playlistSongTitles.length - 1) return null;
+        firstYoutubeVideoInfo = await playdl.search(playlistSongTitles[searchValidVideoIndex], { limit: 1 });
+        playlistSongTitles.shift();
+    }
+    return firstYoutubeVideoInfo;
 }
 
 /**
