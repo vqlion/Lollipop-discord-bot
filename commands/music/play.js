@@ -219,7 +219,7 @@ module.exports = {
             playlistInfo = await getSpotifyPlaylistInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             playlistTitle = playlistInfo.name + ' (Spotify playlist)';
-            
+
             const playlistSongInfos = playlistInfo.tracks.items;
             playlistSongTitles = [];
             for (index in playlistSongInfos) {
@@ -232,7 +232,7 @@ module.exports = {
             if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
-            
+
             // Spotify album is similar to Deezer playlist
         } else if (isSpotifyAlbumUrl(request)) {
             requestIsPLaylist = true;
@@ -271,11 +271,14 @@ module.exports = {
         if (player.state.status == "playing") { // the bot is already playing something, add the song to the queue
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
 
-            await interaction.editReply(
-                `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
-            ).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            if (requestIsPLaylist) {
+                await sendMessageToUser(interaction,
+                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. Adding the songs to the queue... (this might take a while)`, false);
+            } else {
+                await sendMessageToUser(interaction,
+                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
+                );
+            }
 
             statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
@@ -284,9 +287,11 @@ module.exports = {
             [currentTitle, currentTitleUsername, currentTitleAvatar] = getCurrentSongName(guildId);
             setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
         } else {
-            await interaction.editReply(`Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`)`).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            if (requestIsPLaylist) {
+                await sendMessageToUser(interaction, `Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`). Adding the songs to the queue... (this might take a while)`, false);
+            } else {
+                await sendMessageToUser(interaction, `Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`)`);
+            }
 
             statusThread.send(`\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`)
                 .then()
@@ -308,6 +313,7 @@ module.exports = {
         if (requestIsPLaylist) {
             if (!requestIsYoutubePlaylist) playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
             pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
+            await sendMessageToUser(interaction, `Finished adding the songs from \`${playlistTitle}\` to the queue.`);
         }
 
         connection.on(
@@ -412,6 +418,20 @@ module.exports = {
 function returnErrorMessageToUser(interaction, errorMessage) {
     return interaction.editReply(errorMessage).then(() => {
         setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+    }).catch(console.error);
+}
+
+/**
+ * Sends a message to the user in response to an interaction.
+ * 
+ * @param {Interaction} interaction - The interaction object representing the user's interaction with the bot.
+ * @param {string} message - The message to send to the user.
+ * @param {boolean} [deleteMessage=true] - Optional. Specifies whether to delete the message after a certain timeout.
+ * @returns {Promise<void>} - A promise that resolves when the message is sent and, if applicable, deleted.
+ */
+async function sendMessageToUser(interaction, message, deleteMessage = true) {
+    await interaction.editReply(message).then(() => {
+        if (deleteMessage) setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
     }).catch(console.error);
 }
 
