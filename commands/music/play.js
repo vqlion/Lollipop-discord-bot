@@ -150,6 +150,7 @@ module.exports = {
             }
         }
         var playlistInfo, playlistVideosInfo, playlistTitle;
+        var playlistSongTitles = [];
         var requestIsPLaylist = false;
         if (isYoutubePlaylistUrl(request)) {
             requestIsPLaylist = true;
@@ -175,97 +176,78 @@ module.exports = {
         if (isDeezerPlaylistUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getDeezerPlaylistInfoFromUrl(url);
-            if (!playlistInfo) {
-                return interaction.editReply(
-                    "Couldn't find any playlist matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
-            }
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             playlistTitle = playlistInfo.title + ' (Deezer playlist)';
 
-            const playlistSongInfos = playlistInfo['tracks']['data'];
-            var playlistSongTitles = [];
+            const playlistSongInfos = playlistInfo.tracks.data;
+            playlistSongTitles = [];
             for (index in playlistSongInfos) {
-                playlistSongTitles.push(`${playlistSongInfos[index]['title']} - ${playlistSongInfos[index]['artist']['name']}`);
+                playlistSongTitles.push(`${playlistSongInfos[index].title} - ${playlistSongInfos[index].artist.name}`);
             }
-            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
-            url = playlistVideosInfo[0].url;
-            title = playlistVideosInfo[0].title;
-            playlistVideosInfo.shift();
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
         }
 
         if (isDeezerAlbumUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getDeezerAlbumInfoFromUrl(url);
-            if (!playlistInfo) {
-                return interaction.editReply(
-                    "Couldn't find any album matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
-            }
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request.");
+            
             playlistTitle = playlistInfo.title + ' - ' + playlistInfo.artist.name;
 
-            const playlistSongInfos = playlistInfo['tracks']['data'];
-            var playlistSongTitles = [];
+            const playlistSongInfos = playlistInfo.tracks.data;
+            playlistSongTitles = [];
             for (index in playlistSongInfos) {
-                playlistSongTitles.push(`${playlistSongInfos[index]['title']} - ${playlistSongInfos[index]['artist']['name']}`);
+                playlistSongTitles.push(`${playlistSongInfos[index].title} - ${playlistSongInfos[index].artist.name}`);
             }
-            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
-            url = playlistVideosInfo[0].url;
-            title = playlistVideosInfo[0].title;
-            playlistVideosInfo.shift();
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");            
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
         }
 
         if (isSpotifyPlaylistUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getSpotifyPlaylistInfoFromUrl(url);
-            if (!playlistInfo) {
-                return interaction.editReply(
-                    "Couldn't find any playlist matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
-            }
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             playlistTitle = playlistInfo.name + ' (Spotify playlist)';
 
-            const playlistSongInfos = playlistInfo['tracks']['items'];
-            var playlistSongTitles = [];
+            const playlistSongInfos = playlistInfo.tracks.items;
+            playlistSongTitles = [];
             for (index in playlistSongInfos) {
-                var spotifyTrackName = playlistSongInfos[index]['track']['name'];
-                var spotifyTrackArtist = playlistSongInfos[index]['track']['artists'][0]['name'];
+                var spotifyTrackName = playlistSongInfos[index].track.name;
+                var spotifyTrackArtist = playlistSongInfos[index].track.artists[0].name;
                 playlistSongTitles.push(`${spotifyTrackName} - ${spotifyTrackArtist}`);
             }
-            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
-            url = playlistVideosInfo[0].url;
-            title = playlistVideosInfo[0].title;
-            playlistVideosInfo.shift();
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
         }
         
         if (isSpotifyAlbumUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getSpotifyAlbumInfoFromUrl(url);
-            if (!playlistInfo) {
-                return interaction.editReply(
-                    "Couldn't find any album matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
-            }
-            playlistTitle = playlistInfo.name + ' - ' + playlistInfo['artists'][0]['name'];
+            if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");
+            playlistTitle = playlistInfo.name + ' - ' + playlistInfo.artists[0].name;
     
-            const playlistSongInfos = playlistInfo['tracks']['items'];
-            var playlistSongTitles = [];
+            const playlistSongInfos = playlistInfo.tracks.items;
+            playlistSongTitles = [];
             for (index in playlistSongInfos) {
-                var spotifyTrackName = playlistSongInfos[index]['name'];
-                var spotifyTrackArtist = playlistSongInfos[index]['artists'][0]['name'];
+                var spotifyTrackName = playlistSongInfos[index].name;
+                var spotifyTrackArtist = playlistSongInfos[index].artists[0].name;
                 playlistSongTitles.push(`${spotifyTrackName} - ${spotifyTrackArtist}`);
             }
-            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
-            url = playlistVideosInfo[0].url;
-            title = playlistVideosInfo[0].title;
-            playlistVideosInfo.shift();
+
+            var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
+            url = firstYoutubeVideoInfo[0].url;
+            title = firstYoutubeVideoInfo[0].title;
         }
 
         if (!player) {
@@ -317,6 +299,7 @@ module.exports = {
         // delayed adding the playlist songs to the list because it takes a bit of time
         // that way the bot can answer to the interaction before it times out
         if (requestIsPLaylist) {
+            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
             pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
         }
 
@@ -569,6 +552,25 @@ async function getYoutubeVideoListFromTitles(titles) {
         tmp.push(youtubeVideoInfo[0]);
     }
     return tmp;
+}
+
+function returnErrorMessageToUser(interaction, errorMessage) {
+    return interaction.editReply(errorMessage).then(() => {
+        setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+    }).catch(console.error);
+}
+
+async function getFirstYoutubeVideoInfo(playlistSongTitles) {
+    var searchValidVideoIndex = 0;
+    var firstYoutubeVideoInfo = await playdl.search(playlistSongTitles[searchValidVideoIndex], { limit: 1 });
+    playlistSongTitles.shift();
+    while (firstYoutubeVideoInfo.length == 0) {
+        searchValidVideoIndex++;
+        if (searchValidVideoIndex == playlistSongTitles.length - 1) return null;
+        firstYoutubeVideoInfo = await playdl.search(playlistSongTitles[searchValidVideoIndex], { limit: 1 });
+        playlistSongTitles.shift();
+    }
+    return firstYoutubeVideoInfo;
 }
 
 /**
