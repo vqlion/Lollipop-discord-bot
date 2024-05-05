@@ -116,6 +116,12 @@ module.exports = {
             return returnErrorMessageToUser(interaction, "You must be in the same voice channel as the bot to perform this command.");
         }
 
+        /**
+         * There begins the handling of the request, treating all possible cases.
+         * Not an url, youtube playlist, deezer playlist/album, spotify playlisty/album
+         * The goal of each of these is just to get the title and youtube url of the video, which will then be used to actually play the music.
+         */
+
         var url = request;
         var title = null;
 
@@ -124,6 +130,7 @@ module.exports = {
         var requestIsPLaylist = false;
         var requestIsYoutubePlaylist = false;
 
+        // Not an url, search the video on youtube from the request with playdl to get url and title
         if (!isValidHttpUrl(request)) {
             var youtubeVideoInfo = await playdl.search(request, { limit: 1 });
             if (youtubeVideoInfo.length == 0) {
@@ -131,12 +138,15 @@ module.exports = {
             }
             url = youtubeVideoInfo[0].url;
             title = youtubeVideoInfo[0].title;
+
+            // Youtube video url, just fetch the title to show it to the user, we'll use the url directly to play the music
         } else if (isYoutubeVideoUrl(request)) {
             title = await getYoutubeVideoTitleFromUrl(url);
             if (!title) {
                 return returnErrorMessageToUser(interaction, "Couldn't find any video matching your request.");
             }
 
+            // Youtube playlist url, get all the songs with playdl from the url and push their titles and urls to the list
         } else if (isYoutubePlaylistUrl(request)) {
             requestIsPLaylist = true;
             requestIsYoutubePlaylist = true;
@@ -154,28 +164,42 @@ module.exports = {
             // so remove it to not have it duplicated
             playlistVideosInfo.shift();
 
+            // Deezer playlist url, get all the songs with the deezer api to fetch their titles 
+            // Then look for their Youtube URL with playdl (looking from title) and put the titles and urls in the list
         } else if (isDeezerPlaylistUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getDeezerPlaylistInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             playlistTitle = playlistInfo.title + ' (Deezer playlist)';
 
+            /**
+             * Here we fetch the song titles and artist name and format them ({title} - {artist})
+             * These strings will then be used to look for a video matching the song on youtube
+             */
             const playlistSongInfos = playlistInfo.tracks.data;
             playlistSongTitles = [];
             for (index in playlistSongInfos) {
                 playlistSongTitles.push(`${playlistSongInfos[index].title} - ${playlistSongInfos[index].artist.name}`);
             }
 
+            /**
+             * Get the first song information to play it instantly. 
+             * This allows for later computation of the rest of the videos (because it takes a lot of time)
+             * That way the users don't have to wait 30 seconds for the playlist to start 
+             * Basically the bot plays the first song and computes the rest of the playlist in the background
+             * This pattern repeats for every playlist/album from now on.
+             */
             var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
-            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
 
+            // Deezer album is similar to Deezer playlist
         } else if (isDeezerAlbumUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getDeezerAlbumInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request.");
-            
+
             playlistTitle = playlistInfo.title + ' - ' + playlistInfo.artist.name;
 
             const playlistSongInfos = playlistInfo.tracks.data;
@@ -185,16 +209,17 @@ module.exports = {
             }
 
             var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
-            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");            
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
 
+            // Spotify playlist is similar to Deezer playlist
         } else if (isSpotifyPlaylistUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getSpotifyPlaylistInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             playlistTitle = playlistInfo.name + ' (Spotify playlist)';
-
+            
             const playlistSongInfos = playlistInfo.tracks.items;
             playlistSongTitles = [];
             for (index in playlistSongInfos) {
@@ -204,16 +229,17 @@ module.exports = {
             }
 
             var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
-            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
-
+            
+            // Spotify album is similar to Deezer playlist
         } else if (isSpotifyAlbumUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getSpotifyAlbumInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");
             playlistTitle = playlistInfo.name + ' - ' + playlistInfo.artists[0].name;
-    
+
             const playlistSongInfos = playlistInfo.tracks.items;
             playlistSongTitles = [];
             for (index in playlistSongInfos) {
@@ -223,10 +249,10 @@ module.exports = {
             }
 
             var firstYoutubeVideoInfo = await getFirstYoutubeVideoInfo(playlistSongTitles);
-            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
+            if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
-            
+
         } else {
             return returnErrorMessageToUser(interaction, "Couldn't find anything matching your request");
         }
@@ -377,6 +403,19 @@ module.exports = {
 };
 
 /**
+ * Sends an error message to the user and deletes it after a timeout.
+ * 
+ * @param {Interaction} interaction - The interaction object representing the user's interaction with the bot.
+ * @param {string} errorMessage - The error message to send to the user.
+ * @returns {Promise<void>} A promise that resolves after the error message is sent and deleted.
+ */
+function returnErrorMessageToUser(interaction, errorMessage) {
+    return interaction.editReply(errorMessage).then(() => {
+        setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
+    }).catch(console.error);
+}
+
+/**
  * Checks if a given string is a valid HTTP or HTTPS URL.
  *
  * @param {string} string The string to be checked.
@@ -422,18 +461,41 @@ function isYoutubePlaylistUrl(url) {
     return url.match('^https:\/\/www\.youtube\.com\/playlist.*');
 }
 
+/**
+ * Checks if the given URL is a Deezer playlist URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Deezer playlist URL, otherwise returns false.
+ */
 function isDeezerPlaylistUrl(url) {
     return url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/.*$');
 }
-
+/**
+ * Checks if the given URL is a Deezer album URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Deezer album URL, otherwise returns false.
+ */
 function isDeezerAlbumUrl(url) {
     return url.match('^https:\/\/www\.deezer\.com\/.*\/album\/.*$');
 }
 
+/**
+ * Checks if the given URL is a Spotify playlist URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Spotify playlist URL, otherwise returns false.
+ */
 function isSpotifyPlaylistUrl(url) {
     return url.match('^https:\/\/open\.spotify\.com\/playlist\/.*$');
 }
 
+/**
+ * Checks if the given URL is a Spotify album URL.
+ * 
+ * @param {string} url - The URL to check.
+ * @returns {boolean} - Returns true if the URL is a Spotify album URL, otherwise returns false.
+ */
 function isSpotifyAlbumUrl(url) {
     return url.match('^https:\/\/open\.spotify\.com\/album\/.*$');
 }
@@ -457,6 +519,12 @@ async function getYoutubeVideoTitleFromUrl(url) {
     return songTitle;
 }
 
+/**
+ * Retrieves information about a Deezer playlist from a given URL.
+ * 
+ * @param {string} url - The Deezer playlist URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the playlist information object, or null if an error occurs.
+ */
 async function getDeezerPlaylistInfoFromUrl(url) {
     const playlistId = url.match('^https:\/\/www\.deezer\.com\/.*\/playlist\/(.*?)(\/|&|\\?|$)')[1];
     var response;
@@ -469,6 +537,12 @@ async function getDeezerPlaylistInfoFromUrl(url) {
     return response ? response['data'] : null;
 }
 
+/**
+ * Retrieves information about a Deezer album from a given URL.
+ * 
+ * @param {string} url - The Deezer album URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the album information object, or null if an error occurs.
+ */
 async function getDeezerAlbumInfoFromUrl(url) {
     const albumId = url.match('^https:\/\/www\.deezer\.com\/.*\/album\/(.*?)(\/|&|$)')[1];
     var response;
@@ -481,6 +555,11 @@ async function getDeezerAlbumInfoFromUrl(url) {
     return response ? response['data'] : null;
 }
 
+/**
+ * Retrieves the access token for Spotify API.
+ * 
+ * @returns {string|null} The access token or null if an error occurred.
+ */
 async function getSpotifyAccessToken() {
     var response;
     try {
@@ -495,13 +574,19 @@ async function getSpotifyAccessToken() {
     return response ? response['data']['access_token'] : null;
 }
 
+/**
+ * Retrieves information about a Spotify playlist from a given URL.
+ * 
+ * @param {string} url - The Spotify playlist URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the playlist information object, or null if an error occurs.
+ */
 async function getSpotifyPlaylistInfoFromUrl(url) {
     const playlistId = url.match('^https:\/\/open\.spotify\.com\/playlist\/(.*?)(\/|&|\\?|$)')[1];
     const accessToken = await getSpotifyAccessToken();
     var response;
     try {
         response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
-            headers: { 'Authorization': `Bearer ${accessToken}`}
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         if (response.status != 200) return null;
     } catch (error) {
@@ -510,13 +595,19 @@ async function getSpotifyPlaylistInfoFromUrl(url) {
     return response ? response['data'] : null;
 }
 
+/**
+ * Retrieves information about a Spotify album from a given URL.
+ * 
+ * @param {string} url - The Spotify album URL.
+ * @returns {Promise<Object|null>} - A Promise that resolves to the album information object, or null if an error occurs.
+ */
 async function getSpotifyAlbumInfoFromUrl(url) {
     const albumId = url.match('^https:\/\/open\.spotify\.com\/album\/(.*?)(\/|&|\\?|$)')[1];
     const accessToken = await getSpotifyAccessToken();
     var response;
     try {
         response = await axios.get(`https://api.spotify.com/v1/albums/${albumId}`, {
-            headers: { 'Authorization': `Bearer ${accessToken}`}
+            headers: { 'Authorization': `Bearer ${accessToken}` }
         });
         if (response.status != 200) return null;
     } catch (error) {
@@ -525,6 +616,12 @@ async function getSpotifyAlbumInfoFromUrl(url) {
     return response ? response['data'] : null;
 }
 
+/**
+ * Retrieves a list of YouTube video information based on the given titles.
+ * 
+ * @param {string[]} titles - An array of video titles to search for.
+ * @returns {Promise<playdl.YouTubeVideo[]>} - A promise that resolves to an array of YouTube video information objects.
+ */
 async function getYoutubeVideoListFromTitles(titles) {
     var tmp = [];
     for (index in titles) {
@@ -535,12 +632,12 @@ async function getYoutubeVideoListFromTitles(titles) {
     return tmp;
 }
 
-function returnErrorMessageToUser(interaction, errorMessage) {
-    return interaction.editReply(errorMessage).then(() => {
-        setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-    }).catch(console.error);
-}
-
+/**
+ * Retrieves the information of the first YouTube video from the given playlist song titles.
+ * 
+ * @param {string[]} playlistSongTitles - The array of playlist song titles.
+ * @returns {Promise<playdl.YouTubeVideo[]>} - A promise that resolves to an array of YouTube video information.
+ */
 async function getFirstYoutubeVideoInfo(playlistSongTitles) {
     var searchValidVideoIndex = 0;
     var firstYoutubeVideoInfo = await playdl.search(playlistSongTitles[searchValidVideoIndex], { limit: 1 });
