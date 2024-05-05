@@ -119,6 +119,11 @@ module.exports = {
         var url = request;
         var title = null;
 
+        var playlistInfo, playlistVideosInfo, playlistTitle;
+        var playlistSongTitles = [];
+        var requestIsPLaylist = false;
+        var requestIsYoutubePlaylist = false;
+
         if (!isValidHttpUrl(request)) {
             var youtubeVideoInfo = await playdl.search(request, { limit: 1 });
             if (youtubeVideoInfo.length == 0) {
@@ -126,18 +131,13 @@ module.exports = {
             }
             url = youtubeVideoInfo[0].url;
             title = youtubeVideoInfo[0].title;
-        }
-        if (isYoutubeVideoUrl(request)) {
+        } else if (isYoutubeVideoUrl(request)) {
             title = await getYoutubeVideoTitleFromUrl(url);
             if (!title) {
                 return returnErrorMessageToUser(interaction, "Couldn't find any video matching your request.");
             }
-        }
-        var playlistInfo, playlistVideosInfo, playlistTitle;
-        var playlistSongTitles = [];
-        var requestIsPLaylist = false;
-        var requestIsYoutubePlaylist = false;
-        if (isYoutubePlaylistUrl(request)) {
+
+        } else if (isYoutubePlaylistUrl(request)) {
             requestIsPLaylist = true;
             requestIsYoutubePlaylist = true;
             try {
@@ -153,9 +153,8 @@ module.exports = {
             // the first song is either gonna be played now or added to the list below
             // so remove it to not have it duplicated
             playlistVideosInfo.shift();
-        }
 
-        if (isDeezerPlaylistUrl(request)) {
+        } else if (isDeezerPlaylistUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getDeezerPlaylistInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
@@ -171,9 +170,8 @@ module.exports = {
             if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
-        }
 
-        if (isDeezerAlbumUrl(request)) {
+        } else if (isDeezerAlbumUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getDeezerAlbumInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request.");
@@ -190,9 +188,8 @@ module.exports = {
             if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");            
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
-        }
 
-        if (isSpotifyPlaylistUrl(request)) {
+        } else if (isSpotifyPlaylistUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getSpotifyPlaylistInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");
@@ -210,9 +207,8 @@ module.exports = {
             if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
-        }
-        
-        if (isSpotifyAlbumUrl(request)) {
+
+        } else if (isSpotifyAlbumUrl(request)) {
             requestIsPLaylist = true;
             playlistInfo = await getSpotifyAlbumInfoFromUrl(url);
             if (!playlistInfo) return returnErrorMessageToUser(interaction, "Couldn't find any album matching your request");
@@ -230,6 +226,9 @@ module.exports = {
             if (!firstYoutubeVideoInfo) return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request");            
             url = firstYoutubeVideoInfo[0].url;
             title = firstYoutubeVideoInfo[0].title;
+            
+        } else {
+            return returnErrorMessageToUser(interaction, "Couldn't find anything matching your request");
         }
 
         if (!player) {
