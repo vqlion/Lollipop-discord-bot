@@ -19,11 +19,11 @@ const DELETE_REPLY_TIMEOUT = 5000;
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("play")
-        .setDescription("Play any song from Youtube")
+        .setDescription("Play any song or playlist from Youtube, or playlist from Deezer or Spotify")
         .addStringOption((option) =>
             option
                 .setName("song")
-                .setDescription("The song you want to play")
+                .setDescription("The song/playlist you want to play")
                 .setRequired(true)
         ),
     async execute(interaction) {
@@ -98,11 +98,7 @@ module.exports = {
 
 
         if (!channel) {
-            return interaction.editReply(
-                "You must be in a voice channel to perform this command."
-            ).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            return returnErrorMessageToUser(interaction, "You must be in a voice channel to perform this command.");
         }
 
         var connection = getVoiceConnection(channel.guildId);
@@ -117,11 +113,7 @@ module.exports = {
             player = createAudioPlayer();
             connection.subscribe(player);
         } else if (connection.joinConfig.channelId !== channel.id) {
-            return interaction.editReply(
-                "You must be in the same voice channel as the bot to perform this command."
-            ).then(() => {
-                setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-            }).catch(console.error);
+            return returnErrorMessageToUser(interaction, "You must be in the same voice channel as the bot to perform this command.");
         }
 
         var url = request;
@@ -130,11 +122,7 @@ module.exports = {
         if (!isValidHttpUrl(request)) {
             var youtubeVideoInfo = await playdl.search(request, { limit: 1 });
             if (youtubeVideoInfo.length == 0) {
-                return interaction.editReply(
-                    "Couldn't find any video matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
+                return returnErrorMessageToUser(interaction, "Couldn't find any video matching your request.");
             }
             url = youtubeVideoInfo[0].url;
             title = youtubeVideoInfo[0].title;
@@ -142,26 +130,20 @@ module.exports = {
         if (isYoutubeVideoUrl(request)) {
             title = await getYoutubeVideoTitleFromUrl(url);
             if (!title) {
-                return interaction.editReply(
-                    "Couldn't find any video matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
+                return returnErrorMessageToUser(interaction, "Couldn't find any video matching your request.");
             }
         }
         var playlistInfo, playlistVideosInfo, playlistTitle;
         var playlistSongTitles = [];
         var requestIsPLaylist = false;
+        var requestIsYoutubePlaylist = false;
         if (isYoutubePlaylistUrl(request)) {
             requestIsPLaylist = true;
+            requestIsYoutubePlaylist = true;
             try {
                 playlistInfo = await playdl.playlist_info(request, { incomplete: true });
             } catch (error) {
-                return interaction.editReply(
-                    "Couldn't find any playlist matching your request."
-                ).then(() => {
-                    setTimeout(() => { interaction.deleteReply().then().catch(console.error) }, DELETE_REPLY_TIMEOUT);
-                }).catch(console.error);
+                return returnErrorMessageToUser(interaction, "Couldn't find any playlist matching your request.");
             }
             playlistVideosInfo = await playlistInfo.all_videos();
 
@@ -299,7 +281,7 @@ module.exports = {
         // delayed adding the playlist songs to the list because it takes a bit of time
         // that way the bot can answer to the interaction before it times out
         if (requestIsPLaylist) {
-            playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
+            if (!requestIsYoutubePlaylist) playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
             pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
         }
 
