@@ -11,6 +11,7 @@ const {
 } = require("@discordjs/voice");
 const fs = require("fs");
 const { youtube_api_key, spotify_client_id, spotify_client_secret } = require('../../config.json')
+const db = require('./utils/dbHelpers.js');
 
 var clientAvatar; // Avatar (profile picture) of the bot
 let nextResourceIsAvailable = true;
@@ -37,15 +38,18 @@ module.exports = {
         const memberAvatar = interaction.member.user.avatarURL();
         clientAvatar = interaction.client.user.avatarURL();
 
+        db.insertNewGuild(guildId);
+
         /**
          * ID of the status message
          * This is the ID of the message updated each time a new song is added.
          * It is created via the setStatusMessage function, it's an embed message.
         */
-        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-
         var statusMessage; // status message mentioned earlier
-        if (statusMessageId) {
+
+        await db.getGuildData(guildId).then(async (data) => {
+            var statusMessageId = data.statusMessageId;
+            if (!statusMessageId) return; 
             try {
                 await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
                     statusMessage = msg;
@@ -53,7 +57,7 @@ module.exports = {
             } catch (error) {
                 statusMessage = null;
             }
-        }
+        });
 
         /**
          * statusChannel is the channel in which the status message is sent.
@@ -270,13 +274,14 @@ module.exports = {
          */
         if (player.state.status == "playing") { // the bot is already playing something, add the song to the queue
             pushNewSongName(title, memberName, memberAvatar, url, guildId);
+            db.insertSongInQueue(guildId, { songName: title, songUrl: url, songAuthor: memberName, songAuthorAvatar: memberAvatar });
 
             if (requestIsPLaylist) {
                 await sendMessageToUser(interaction,
                     `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. Adding the songs to the queue... (this might take a while)`, false);
             } else {
                 await sendMessageToUser(interaction,
-                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
+                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`
                 );
             }
 
@@ -299,7 +304,8 @@ module.exports = {
 
             if (!isPlaylistUrl(request)) resetResourceList(guildId);
             pushCurrentSongName(title, memberName, memberAvatar, guildId);
-
+            db.updateCurrentSong(guildId, { songName: title, songUrl: url, songAuthor: memberName, songAuthorAvatar: memberAvatar });
+            
             var stream = await playdl.stream(url);
             const resource = createAudioResource(stream.stream, {
                 inputType: stream.type,
@@ -319,14 +325,12 @@ module.exports = {
         connection.on(
             VoiceConnectionStatus.Disconnected,
             async (oldState, newState) => {
-                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-                if (statusMessageId) {
-                    try {
-                        await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                            msg.delete().then().catch(console.error);
-                        }).catch();
-                    } catch (error) { }
-                }
+                db.getGuildData(guildId).then(async (data) => {
+                    var statusMessageId = data.statusMessageId;
+                    await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                        msg.delete().then().catch(console.error);
+                    }).catch();
+                });
                 try {
                     connection.destroy();
                     player.stop();
@@ -334,20 +338,19 @@ module.exports = {
                     console.error;
                 }
                 resetResourceList(guildId);
+                db.deleteQueue(guildId);
             }
         );
 
         connection.on(
             VoiceConnectionStatus.Destroyed,
             async (oldState, newState) => {
-                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-                if (statusMessageId) {
-                    try {
-                        await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                            msg.delete().then().catch(console.error);
-                        }).catch();
-                    } catch (error) { }
-                }
+                db.getGuildData(guildId).then(async (data) => {
+                    var statusMessageId = data.statusMessageId;
+                    await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                        msg.delete().then().catch(console.error);
+                    }).catch();
+                });
                 try {
                     connection.destroy();
                     player.stop();
@@ -355,6 +358,7 @@ module.exports = {
                     console.error;
                 }
                 resetResourceList(guildId);
+                db.deleteQueue(guildId);
             }
         )
 
@@ -880,6 +884,7 @@ async function setStatusMessage(currentTitle, author, authorAvatar, guildId, sta
         }).catch(console.error);
     }
     dumpStatusMessageToJsonFile(statusMessage.id, guildId);
+    db.updateStatusMessageId(guildId, statusMessage.id);
 }
 
 /**
