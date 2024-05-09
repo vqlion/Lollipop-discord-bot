@@ -20,8 +20,6 @@ const queueTableColumns = {
 }
 
 module.exports = {
-    createMusicTable,
-    createQueueTable,
     insertSongInQueue,
     insertPlaylistInQueue,
     insertNewGuild,
@@ -32,23 +30,6 @@ module.exports = {
     deleteFirstSongInQueue,
     getQueue,
     deleteQueue
-}
-
-function createMusicTable() {
-    console.log(database_file);
-    const db = new sqlite3.Database(database_file);
-    db.serialize(() => {
-        db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (${Object.values(musicTableColumns).join(', ')})`);
-    });
-    db.close();
-}
-
-function createQueueTable(guildId) {
-    const db = new sqlite3.Database(database_file);
-    db.serialize(() => {
-        db.run(`CREATE TABLE IF NOT EXISTS queue_${guildId} (${Object.values(queueTableColumns).join(', ')})`);
-    });
-    db.close();
 }
 
 function insertNewGuild(guildId) {

@@ -9,7 +9,6 @@ module.exports = {
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const guildId = interaction.guildId;
-        let songList = getSongList();
         db.getQueue(guildId).then((queue) => {
             if (!queue || !queue.length) return interaction.editReply("There are no songs in the queue right now.");
             let res = "Got it! The queued songs are:\n";
@@ -28,17 +27,3 @@ module.exports = {
         });
     },
 };
-
-/**
- * Retrieves the song list from the 'song_list.json' file.
- * 
- * @returns {Array|null} The parsed song list or null if an error occurs.
- */
-function getSongList() {
-    try {
-        const data = readFileSync('song_list.json');
-        return JSON.parse(data);
-    } catch {
-        return null;
-    }
-}
