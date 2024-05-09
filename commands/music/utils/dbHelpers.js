@@ -23,6 +23,7 @@ module.exports = {
     createMusicTable,
     createQueueTable,
     insertSongInQueue,
+    insertPlaylistInQueue,
     insertNewGuild,
     updateCurrentSong,
     updateStatusMessageId,
@@ -57,7 +58,15 @@ function insertNewGuild(guildId) {
         db.run(`INSERT OR IGNORE INTO ${tableName} (guildId) VALUES (?)`, [guildId]);
         db.run(`CREATE TABLE IF NOT EXISTS queue_${guildId} (${Object.values(queueTableColumns).join(', ')})`);
     });
-    db.close();
+    db.close((err) => {
+        return new Promise((resolve, reject) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
 }
 
 function insertSongInQueue(guildId, songParams) {
@@ -66,6 +75,18 @@ function insertSongInQueue(guildId, songParams) {
         db.run(`INSERT INTO queue_${guildId} (${Object.keys(queueTableColumns).join(', ')}) VALUES (?, ?, ?, ?)`, [songParams.songName, songParams.songUrl, songParams.songAuthor, songParams.songAuthorAvatar]);
     });
     db.close();
+}
+
+function insertPlaylistInQueue(guildId, playlist) {
+    const db = new sqlite3.Database(database_file);
+    const playlistPlaceholder = playlist.map(() => '(?, ?, ?, ?)').join(', ');
+    const playlistValues = playlist.reduce((acc, song) => {
+        acc.push(song.songName, song.songUrl, song.songAuthor, song.songAuthorAvatar);
+        return acc;
+    }, []);
+    db.serialize(() => {
+        db.run(`INSERT INTO queue_${guildId} (${Object.keys(queueTableColumns).join(', ')}) VALUES ${playlistPlaceholder}`, playlistValues);
+    });
 }
 
 function updateCurrentSong(guildId, songParams) {
