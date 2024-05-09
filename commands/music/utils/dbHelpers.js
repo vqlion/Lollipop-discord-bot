@@ -32,6 +32,13 @@ module.exports = {
     deleteQueue
 }
 
+/**
+ * Inserts a new guild into the database.
+ * It creates the music table if it doesn't exist, inserts the guild ID, and creates a queue table for the guild.
+ * 
+ * @param {string} guildId - The ID of the guild to insert.
+ * @returns {Promise<void>} A promise that resolves when the operation is complete.
+ */
 function insertNewGuild(guildId) {
     const db = new sqlite3.Database(database_file);
     db.serialize(() => {
@@ -50,6 +57,16 @@ function insertNewGuild(guildId) {
     });
 }
 
+/**
+ * Inserts a song into the queue for a specific guild.
+ * 
+ * @param {string} guildId - The ID of the guild.
+ * @param {Object} songParams - The parameters of the song to be inserted.
+ * @param {string} songParams.songName - The name of the song.
+ * @param {string} songParams.songUrl - The URL of the song.
+ * @param {string} songParams.songAuthor - The name of the person who requested the song.
+ * @param {string} songParams.songAuthorAvatar - The song author's avatar URL.
+ */
 function insertSongInQueue(guildId, songParams) {
     const db = new sqlite3.Database(database_file);
     db.serialize(() => {
@@ -58,6 +75,16 @@ function insertSongInQueue(guildId, songParams) {
     db.close();
 }
 
+/**
+ * Inserts a playlist into the queue for a specific guild.
+ *
+ * @param {string} guildId - The ID of the guild.
+ * @param {Array<Object>} playlist - The playlist to insert into the queue.
+ * @param {string} playlist[].songName - The name of the song.
+ * @param {string} playlist[].songUrl - The URL of the song.
+ * @param {string} playlist[].songAuthor - The name of the person who requested the song.
+ * @param {string} playlist[].songAuthorAvatar - The song author's avatar URL.
+ */
 function insertPlaylistInQueue(guildId, playlist) {
     const db = new sqlite3.Database(database_file);
     const playlistPlaceholder = playlist.map(() => '(?, ?, ?, ?)').join(', ');
@@ -70,6 +97,16 @@ function insertPlaylistInQueue(guildId, playlist) {
     });
 }
 
+/**
+ * Updates the current song information in the database for a specific guild.
+ * 
+ * @param {string} guildId - The ID of the guild.
+ * @param {Object} songParams - The parameters of the song to update.
+ * @param {string} songParams.songName - The name of the song.
+ * @param {string} songParams.songUrl - The URL of the song.
+ * @param {string} songParams.songAuthor - The name of the person who requested the song.
+ * @param {string} songParams.songAuthorAvatar - The song author's avatar URL.
+ */
 function updateCurrentSong(guildId, songParams) {
     const db = new sqlite3.Database(database_file);
     db.serialize(() => {
@@ -78,6 +115,12 @@ function updateCurrentSong(guildId, songParams) {
     db.close();
 }
 
+/**
+ * Updates the status message ID for a guild in the database.
+ * 
+ * @param {string} guildId - The ID of the guild.
+ * @param {string} statusMessageId - The ID of the status message.
+ */
 function updateStatusMessageId(guildId, statusMessageId) {
     const db = new sqlite3.Database(database_file);
     db.serialize(() => {
@@ -86,6 +129,12 @@ function updateStatusMessageId(guildId, statusMessageId) {
     db.close();
 }
 
+/**
+ * Retrieves guild data from the database based on the provided guild ID.
+ *
+ * @param {string} guildId - The ID of the guild.
+ * @returns {Promise<Object>} - A promise that resolves with the retrieved guild data as an object.
+ */
 function getGuildData(guildId) {
     const db = new sqlite3.Database(database_file);
     return new Promise((resolve, reject) => {
@@ -101,6 +150,12 @@ function getGuildData(guildId) {
     });
 }
 
+/**
+ * Retrieves the first song in the queue for a specific guild.
+ * 
+ * @param {string} guildId - The ID of the guild.
+ * @returns {Promise<Object>} A promise that resolves with the first song in the queue as an object, or rejects with an error.
+ */
 function getFirstSongInQueue(guildId) {
     const db = new sqlite3.Database(database_file);
     return new Promise((resolve, reject) => {
@@ -114,6 +169,11 @@ function getFirstSongInQueue(guildId) {
     });
 }
 
+/**
+ * Deletes the first song in the queue for the specified guild.
+ *
+ * @param {string} guildId - The ID of the guild.
+ */
 function deleteFirstSongInQueue(guildId) {
     const db = new sqlite3.Database(database_file);
     db.serialize(() => {
@@ -122,6 +182,12 @@ function deleteFirstSongInQueue(guildId) {
     db.close();
 }
 
+/**
+ * Retrieves the queue for a specific guild.
+ * 
+ * @param {string} guildId - The ID of the guild.
+ * @returns {Promise<Array<Object>>} - A promise that resolves with an array of queue items.
+ */
 function getQueue(guildId) {
     const db = new sqlite3.Database(database_file);
     return new Promise((resolve, reject) => {
@@ -135,6 +201,11 @@ function getQueue(guildId) {
     });
 }
 
+/**
+ * Deletes the queue for a specific guild.
+ * 
+ * @param {string} guildId - The ID of the guild.
+ */
 function deleteQueue(guildId) {
     const db = new sqlite3.Database(database_file);
     db.serialize(() => {
