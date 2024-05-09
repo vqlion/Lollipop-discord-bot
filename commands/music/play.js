@@ -9,7 +9,6 @@ const {
     getVoiceConnection,
     AudioPlayerStatus,
 } = require("@discordjs/voice");
-const fs = require("fs");
 const { youtube_api_key, spotify_client_id, spotify_client_secret } = require('../../config.json')
 const db = require('./utils/dbHelpers.js');
 
@@ -463,16 +462,6 @@ function isValidHttpUrl(string) {
         return false;
     }
     return url.protocol === "http:" || url.protocol === "https:";
-}
-
-/**
- * Checks if a given string is a youtube playlist URL. Assumes the url is valid and a youtube URL.
- * 
- * @param {string} url The string to be checked.
- * @returns {boolean} true if the string is a valid playlist URL, false otherwise.
- */
-function isPlaylistUrl(url) {
-    return isValidHttpUrl(url) && url.includes("playlist");
 }
 
 /**
