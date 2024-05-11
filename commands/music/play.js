@@ -9,8 +9,8 @@ const {
     getVoiceConnection,
     AudioPlayerStatus,
 } = require("@discordjs/voice");
-const fs = require("fs");
 const { youtube_api_key, spotify_client_id, spotify_client_secret } = require('../../config.json')
+const db = require('./utils/dbHelpers.js');
 
 var clientAvatar; // Avatar (profile picture) of the bot
 let nextResourceIsAvailable = true;
@@ -37,15 +37,18 @@ module.exports = {
         const memberAvatar = interaction.member.user.avatarURL();
         clientAvatar = interaction.client.user.avatarURL();
 
+        await db.insertNewGuild(guildId);
+
         /**
          * ID of the status message
          * This is the ID of the message updated each time a new song is added.
          * It is created via the setStatusMessage function, it's an embed message.
         */
-        var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-
         var statusMessage; // status message mentioned earlier
-        if (statusMessageId) {
+
+        await db.getGuildData(guildId).then(async (data) => {
+            var statusMessageId = data.statusMessageId;
+            if (!statusMessageId) return;
             try {
                 await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
                     statusMessage = msg;
@@ -53,7 +56,7 @@ module.exports = {
             } catch (error) {
                 statusMessage = null;
             }
-        }
+        });
 
         /**
          * statusChannel is the channel in which the status message is sent.
@@ -269,14 +272,14 @@ module.exports = {
          * If the bot isn't playing -> plays the song
          */
         if (player.state.status == "playing") { // the bot is already playing something, add the song to the queue
-            pushNewSongName(title, memberName, memberAvatar, url, guildId);
+            db.insertSongInQueue(guildId, { songName: title, songUrl: url, songAuthor: memberName, songAuthorAvatar: memberAvatar });
 
             if (requestIsPLaylist) {
                 await sendMessageToUser(interaction,
                     `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. Adding the songs to the queue... (this might take a while)`, false);
             } else {
                 await sendMessageToUser(interaction,
-                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue. It is currently at position \`${getSongListFromJsonFile(guildId).song_list.length}\`.`
+                    `\`${memberName}\` put \`${playlistTitle ?? title}\` in the queue.`
                 );
             }
 
@@ -284,8 +287,10 @@ module.exports = {
                 .then()
                 .catch(console.error);
 
-            [currentTitle, currentTitleUsername, currentTitleAvatar] = getCurrentSongName(guildId);
-            setStatusMessage(currentTitle, currentTitleUsername, currentTitleAvatar, guildId, statusMessage, statusChannel);
+            db.getGuildData(guildId).then(async (data) => {
+                setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, statusMessage, statusChannel);
+            });
+
         } else {
             if (requestIsPLaylist) {
                 await sendMessageToUser(interaction, `Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`). Adding the songs to the queue... (this might take a while)`, false);
@@ -297,8 +302,8 @@ module.exports = {
                 .then()
                 .catch(console.error);
 
-            if (!isPlaylistUrl(request)) resetResourceList(guildId);
-            pushCurrentSongName(title, memberName, memberAvatar, guildId);
+            if (!requestIsPLaylist) db.deleteQueue(guildId);
+            db.updateCurrentSong(guildId, { songName: title, songUrl: url, songAuthor: memberName, songAuthorAvatar: memberAvatar });
 
             var stream = await playdl.stream(url);
             const resource = createAudioResource(stream.stream, {
@@ -312,49 +317,51 @@ module.exports = {
         // that way the bot can answer to the interaction before it times out
         if (requestIsPLaylist) {
             if (!requestIsYoutubePlaylist) playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
-            pushPlayListToSongList(playlistVideosInfo, memberName, memberAvatar, guildId);
+            addPlaylistToQueue(playlistVideosInfo, memberName, memberAvatar, guildId);
             await sendMessageToUser(interaction, `Finished adding the songs from \`${playlistTitle}\` to the queue.`);
+            db.getGuildData(guildId).then(async (data) => {
+                var statusMessageId = data.statusMessageId;
+                await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                    if (msg) setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, msg, statusChannel);
+                });
+            });
         }
 
         connection.on(
             VoiceConnectionStatus.Disconnected,
             async (oldState, newState) => {
-                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-                if (statusMessageId) {
-                    try {
-                        await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                            msg.delete().then().catch(console.error);
-                        }).catch();
-                    } catch (error) { }
-                }
+                db.getGuildData(guildId).then(async (data) => {
+                    var statusMessageId = data.statusMessageId;
+                    await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                        msg.delete().then().catch(console.error);
+                    }).catch();
+                });
                 try {
                     connection.destroy();
                     player.stop();
                 } catch (error) {
                     console.error;
                 }
-                resetResourceList(guildId);
+                db.deleteQueue(guildId);
             }
         );
 
         connection.on(
             VoiceConnectionStatus.Destroyed,
             async (oldState, newState) => {
-                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-                if (statusMessageId) {
-                    try {
-                        await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                            msg.delete().then().catch(console.error);
-                        }).catch();
-                    } catch (error) { }
-                }
+                db.getGuildData(guildId).then(async (data) => {
+                    var statusMessageId = data.statusMessageId;
+                    await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                        msg.delete().then().catch(console.error);
+                    }).catch();
+                });
                 try {
                     connection.destroy();
                     player.stop();
                 } catch (error) {
                     console.error;
                 }
-                resetResourceList(guildId);
+                db.deleteQueue(guildId);
             }
         )
 
@@ -385,24 +392,27 @@ module.exports = {
                     }, 100);
                 }
 
-                var statusMessageId = getStatusMessageIdFronJsonFile(guildId);
-                await interaction.channel.messages.fetch(statusMessageId).then(async (statusMessage) => {
-                    setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage, statusChannel);
+                db.getGuildData(guildId).then(async (data) => {
+                    var statusMessageId = data.statusMessageId;
+                    await interaction.channel.messages.fetch(statusMessageId).then(async (statusMessage) => {
+                        setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage, statusChannel);
 
-                    var [nextResourceUrl, nextResourceTitle, nextResourceAuthor, nextResourceAvatar] = getNextResource(guildId);
-                    if (nextResourceUrl) {
-                        var stream = await playdl.stream(nextResourceUrl);
-                        const resource = createAudioResource(stream.stream, {
-                            inputType: stream.type,
-                        });
-                        player.play(resource);
-                    }
+                        db.getFirstSongInQueue(guildId).then(async (firstSong) => {
+                            if (firstSong) {
+                                db.deleteFirstSongInQueue(guildId);
+                                var stream = await playdl.stream(firstSong.songUrl);
+                                const resource = createAudioResource(stream.stream, {
+                                    inputType: stream.type,
+                                });
+                                player.play(resource);
+                                db.updateCurrentSong(guildId, firstSong);
 
-                    pushCurrentSongName(nextResourceTitle, nextResourceAuthor, nextResourceAvatar, guildId);
-
-                    if (nextResourceTitle) setStatusMessage(nextResourceTitle, nextResourceAuthor, nextResourceAvatar, guildId, statusMessage, statusChannel);
-                    else setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
-                }).catch();
+                                setStatusMessage(firstSong.songName, firstSong.songAuthor, firstSong.songAuthorAvatar, guildId, statusMessage, statusChannel);
+                            } else
+                                setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
+                        }).catch(console.error);
+                    }).catch();
+                });
             }
         });
     },
@@ -449,16 +459,6 @@ function isValidHttpUrl(string) {
         return false;
     }
     return url.protocol === "http:" || url.protocol === "https:";
-}
-
-/**
- * Checks if a given string is a youtube playlist URL. Assumes the url is valid and a youtube URL.
- * 
- * @param {string} url The string to be checked.
- * @returns {boolean} true if the string is a valid playlist URL, false otherwise.
- */
-function isPlaylistUrl(url) {
-    return isValidHttpUrl(url) && url.includes("playlist");
 }
 
 /**
@@ -680,172 +680,20 @@ async function getFirstYoutubeVideoInfo(playlistSongTitles) {
  * @param {string} guildId - The ID of the guild where the songs are being added.
  * @returns {void}
  */
-async function pushPlayListToSongList(playlist, author, authorAvatar, guildId) {
-    var songList = getSongListFromJsonFile(guildId);
+async function addPlaylistToQueue(playlist, author, authorAvatar, guildId) {
+    tmp = [];
     for (entry in playlist) {
         var url = playlist[entry].url;
         var title = playlist[entry].title;
-        songList.song_list.push([title, author, authorAvatar, url]);
+        tmp.push({
+            songName: title,
+            songUrl: url,
+            songAuthor: author,
+            songAuthorAvatar: authorAvatar
+        });
     }
-    dumpSongListToJsonFile(songList, guildId);
+    db.insertPlaylistInQueue(guildId, tmp);
 }
-
-/**
- * Pushes a new song to the song list and saves it back to the JSON file.
- * 
- * @param {string} song - The name of the song.
- * @param {string} author - The name of the person who added the song.
- * @param {string} authorAvatar - The profile picture URL of the author.
- * @param {string} url - The URL of the song.
- * @param {string} guildId - The ID of the guild were the song is being added.
- * @returns {void}
-*/
-function pushNewSongName(song, author, authorAvatar, url, guildId) {
-    var songList = getSongListFromJsonFile(guildId);
-    songList.song_list.push([song, author, authorAvatar, url]);
-    dumpSongListToJsonFile(songList, guildId);
-}
-
-/**
- * Updates the current song information in the song list and saves it back to the JSON file.
- * 
- * @param {string} song - The name of the current song.
- * @param {string} author - The name of the person who added the song.
- * @param {string} authorAvatar - The profile picture URL of the author.
- * @param {string} guildId - The ID of the guild were the song is being added.
- * @returns {void}
- */
-function pushCurrentSongName(song, author, authorAvatar, guildId) {
-    var songList = getSongListFromJsonFile(guildId);
-    songList.current_song = [song, author, authorAvatar];
-    dumpSongListToJsonFile(songList, guildId);
-}
-
-/**
- * Retrieves the name, author name and author avatar URL of the current song for a given guild.
- * 
- * @param {string} guildId - The ID of the guild.
- * @returns {Array.<string>} [song, author, authorAvatar]
- */
-function getCurrentSongName(guildId) {
-    const songList = getSongListFromJsonFile(guildId);
-    return songList.current_song;
-}
-
-/**
- * Retrieves the next resource from the song list for the specified guild.
- * 
- * @param {string} guildId - The ID of the guild.
- * @returns {Array.<string>} An array containing the resource URL, the song title, the author and the author's avatar URL for the next song.
- */
-function getNextResource(guildId) {
-    var songList = getSongListFromJsonFile(guildId);
-    var resInfo = songList.song_list.shift();
-    if (!resInfo) return [null, null, null, null];
-    var resTitle = resInfo[0];
-    var resAuthor = resInfo[1];
-    var resAuthorAvatar = resInfo[2];
-    var res = resInfo[3];
-    dumpSongListToJsonFile(songList, guildId);
-    return [res, resTitle, resAuthor, resAuthorAvatar];
-}
-
-/**
- * Resets the resource list for the specified guild and saves it to the JSON file.
- * 
- * @param {string} guildId - The ID of the guild.
- * @returns {void}
- */
-function resetResourceList(guildId) {
-    const songList = { "current_song": [], "song_list": [] };
-    dumpSongListToJsonFile(songList, guildId);
-}
-
-/**
- * Writes the given song list to the JSON file, associated with the specified guild ID.
- *
- * @param {Array.<Object>} songList - The list of songs to be dumped to the JSON file.
- * @param {string} guildId - The ID of the guild associated with the song list.
- * @returns {void}
- */
-function dumpSongListToJsonFile(songList, guildId) {
-    var fileData;
-    var data;
-    try {
-        data = fs.readFileSync("song_list.json");
-    } catch (error) { }
-    if (data == null || data.length == 0) fileData = new Object();
-    else fileData = JSON.parse(data);
-    fileData[guildId] = songList;
-    fs.writeFileSync( // this is fine. Maybe a lock could do the trick to be extra sure but this is fine
-        "song_list.json",
-        JSON.stringify(fileData),
-        function (err) {
-            if (err) throw err;
-        }
-    );
-}
-
-/**
- * Retrieves the song list from the JSON file based on the guild ID.
- * 
- * @param {string} guildId - The ID of the guild.
- * @returns {Object} - The song list for the specified guild.
- */
-function getSongListFromJsonFile(guildId) {
-    var songList;
-    var data;
-    try {
-        data = fs.readFileSync("song_list.json");
-    } catch (error) {
-        console.error;
-    }
-    if (data == null || data.length == 0) return { "current_song": [], "song_list": [] };
-    songList = JSON.parse(data);
-    return songList[guildId];
-}
-
-/**
- * Writes the status message ID to the JSON file in the specified guildID entry.
- * 
- * @param {string} statusMessageId - The ID of the status message.
- * @param {string} guildId - The ID of the guild.
- * @returns {void}
- */
-function dumpStatusMessageToJsonFile(statusMessageId, guildId) {
-    var statusMessagesList;
-    var data;
-    try {
-        data = fs.readFileSync("status_messages.json");
-    } catch (error) { }
-    if (data == null || data.length == 0) statusMessagesList = new Object();
-    else statusMessagesList = JSON.parse(data);
-    statusMessagesList[guildId] = statusMessageId;
-    fs.writeFileSync(
-        "status_messages.json",
-        JSON.stringify(statusMessagesList),
-        function (err) {
-            if (err) throw err;
-        }
-    );
-}
-
-/**
- * Retrieves the status message ID from the JSON file based on the guild ID.
- * 
- * @param {string} guildId - The ID of the guild.
- * @returns {string|null} - The status message ID if found, or null if not found.
- */
-function getStatusMessageIdFronJsonFile(guildId) {
-    var data;
-    try {
-        data = fs.readFileSync("status_messages.json");
-    } catch (error) { }
-    if (data == null || data.length == 0) return null;
-    var statusMessagesList = JSON.parse(data);
-    return statusMessagesList[guildId];
-}
-
 
 /**
  * Sets and sends/edits the status message for the current playing song.
@@ -859,6 +707,7 @@ function getStatusMessageIdFronJsonFile(guildId) {
  * @returns {Promise<void>} A promise that resolves once the status message is set.
  */
 async function setStatusMessage(currentTitle, author, authorAvatar, guildId, statusMessage, statusChannel) {
+    const nextSongsList = await getNextSongs(guildId);
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('🎵 Now playing')
@@ -866,7 +715,7 @@ async function setStatusMessage(currentTitle, author, authorAvatar, guildId, sta
         .setDescription(`**${currentTitle}** - \`${author}\``)
         .setThumbnail(authorAvatar)
         .addFields(
-            { name: '⏩ Next songs', value: getNextSongs(guildId) },
+            { name: '⏩ Next songs', value: nextSongsList },
         )
         .setTimestamp()
 
@@ -879,7 +728,7 @@ async function setStatusMessage(currentTitle, author, authorAvatar, guildId, sta
             statusMessage = msg;
         }).catch(console.error);
     }
-    dumpStatusMessageToJsonFile(statusMessage.id, guildId);
+    db.updateStatusMessageId(guildId, statusMessage.id);
 }
 
 /**
@@ -888,16 +737,16 @@ async function setStatusMessage(currentTitle, author, authorAvatar, guildId, sta
  * @param {string} guildId - The ID of the guild.
  * @returns {string} - A formatted string containing the titles and authors of the next songs in the queue.
  */
-function getNextSongs(guildId) {
-    const songList = getSongListFromJsonFile(guildId);
+async function getNextSongs(guildId) {
+    const queue = await db.getQueue(guildId);
     var res = ""
-    for (let i = 0; i < Math.min(songList.song_list.length, 3); i++) {
-        var songTitle = songList.song_list[i][0];
-        var songAuthor = songList.song_list[i][1];
-        res += `**${songTitle}** - \`${songAuthor}\``
-        res += i == Math.min(songList.song_list.length, 3) - 1 ? "" : "\n";
+    for (let i = 0; i < Math.min(queue.length, 3); i++) {
+        var songName = queue[i].songName;
+        var songAuthor = queue[i].songAuthor;
+        res += `**${songName}** - \`${songAuthor}\``
+        res += i == Math.min(queue.length, 3) - 1 ? "" : "\n";
     }
-    res += songList.song_list.length > 3 ? "\n**...**" : "\u200B";
-    res += songList.song_list.length == 0 ? "No songs in queue" : "\u200B"; // don't ask
+    res += queue.length > 3 ? "\n**...**" : "\u200B";
+    res += queue.length == 0 ? "No songs in queue" : "\u200B"; // don't ask
     return res;
 }

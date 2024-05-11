@@ -575,8 +575,6 @@ class ladder_custom():
         Returns:
             None
         """
-        if os.path.isfile(self.database):
-            return
 
         # création de la db
         conn = sqlite3.connect(self.database)
