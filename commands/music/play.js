@@ -37,10 +37,7 @@ module.exports = {
         const memberAvatar = interaction.member.user.avatarURL();
         clientAvatar = interaction.client.user.avatarURL();
 
-        await db.insertNewGuild(guildId).catch((err) =>{
-            console.error(err);
-            return returnErrorMessageToUser(interaction, "An error occurred while trying to execute your command.");
-        });
+        await db.insertNewGuild(guildId);
 
         /**
          * ID of the status message
@@ -325,7 +322,7 @@ module.exports = {
             db.getGuildData(guildId).then(async (data) => {
                 var statusMessageId = data.statusMessageId;
                 await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                    setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, msg, statusChannel);
+                    if (msg) setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, msg, statusChannel);
                 });
             });
         }
