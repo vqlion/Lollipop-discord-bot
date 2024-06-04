@@ -4,8 +4,8 @@
   "description": "Lollipop discord bot, a discord bot to play music and more.",
   "main": "index.js",
   "scripts": {
-    "prestart": "node deploy-commands.js > ~/logs/lollipop_prestart_logs 2>&1",
-    "start": "node index.js > ~/logs/lollipop_logs 2>&1 & echo $! > ~/pids/lollipop.pid"
+    "prestart": "echo '' >> ~/logs/lollipop_prestart_logs && echo '----' >> ~/logs/lollipop_prestart_logs && date >> ~/logs/lollipop_prestart_logs && node deploy-commands.js >> ~/logs/lollipop_prestart_logs 2>&1",
+    "start": "echo '' >> ~/logs/lollipop_logs && echo '----' >> ~/logs/lollipop_logs && date >> ~/logs/lollipop_logs && node index.js >> ~/logs/lollipop_logs 2>&1 & echo $! > ~/pids/lollipop.pid"
   },
   "repository": {
     "type": "git",
