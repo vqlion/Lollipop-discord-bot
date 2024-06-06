@@ -9,7 +9,8 @@ module.exports = {
         
         if (messageAttachments.size == 0 || !(special_guilds.includes(guildId))) return;
 
-        const contentType = messageAttachments.at(0).contentType
+        const contentType = messageAttachments.at(0).contentType;
+        if (!contentType) return;
         if (contentType.includes('audio')) {
             message.delete()
                 .then()
