@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, ChannelType, EmbedBuilder, Message, TextChannel } = require("discord.js");
-const playdl = require("play-dl");
+const playdl = require("./utils/play-dl_patch/index.js");
 const axios = require('axios').default;
 const {
     joinVoiceChannel,
