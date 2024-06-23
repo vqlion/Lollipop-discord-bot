@@ -25,7 +25,7 @@ module.exports = {
                 .setRequired(false)
         ),
     async execute(interaction) {
-        await interaction.deferReply({ephemeral: true});
+        await interaction.deferReply({ ephemeral: true });
 
         const question = interaction.options.getString("question");
         const options = interaction.options.getString("options").split(",").map((option) => option.trim()); // trim to remove spaces
@@ -40,7 +40,7 @@ module.exports = {
         var answers = {};
 
         if (options.length < 2) {
-            return interaction.editReply({ content: 'You need to give at least 2 options.'});
+            return interaction.editReply({ content: 'You need to give at least 2 options.' });
         }
 
         var components = [];
@@ -59,7 +59,7 @@ module.exports = {
 
 
         const response = await channel.send({
-            embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers)],
+            embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers, unique)],
             components: [row]
         });
 
@@ -75,7 +75,7 @@ module.exports = {
                 const answerIndex = answers[selection].findIndex((answer) => answer.member.id === memberVote.id);
                 answers[selection].splice(answerIndex, 1);
                 sameVote = true;
-                await i.reply({ content: `Removed your vote for ${components.find((button) => button.data.custom_id === selection).data.label}.`, ephemeral: true });
+                await i.deferUpdate();
             }
 
             if (unique) { // user can only vote for one option
@@ -88,18 +88,18 @@ module.exports = {
             }
             if (!sameVote) {
                 answers[selection].push({ member: memberVote, selection: selection });
-                await i.reply({ content: `You have selected ${components.find((button) => button.data.custom_id === selection).data.label}!`, ephemeral: true });
+                await i.deferUpdate();
             }
 
             await response.edit({
-                embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers)],
+                embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers, unique)],
                 components: [row]
             });
         });
 
         collector.on('end', async () => {
             await response.edit({
-                embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers, true)],
+                embeds: [generateEmbedPollMessage(question, components, memberId, memberAvatar, answers, unique, true)],
                 components: []
             });
         });
@@ -117,26 +117,27 @@ module.exports = {
  * @param {boolean} [pollEnded=false] - Indicates whether the poll has ended.
  * @returns {Object} The embedded poll message.
  */
-function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans, pollEnded = false) {
+function generateEmbedPollMessage(question, buttons, author, authorAvatar, ans, unique, pollEnded = false) {
     optionFields = [];
 
     for (const [key, value] of Object.entries(ans)) {
         var optionLabel = buttons.find((button) => button.data.custom_id === key);
         optionLabel = optionLabel.data.label;
         optionFields.push({
-            name: optionLabel,
+            name: `${optionLabel} - ${value.length} vote${value.length > 1 ? 's' : ''}`,
             value: value.length > 0 ? value.map((answer) => userMention(answer.member.id)).join(", ") : "No votes yet",
         });
     }
 
     const footer = pollEnded ? `Lollipop - Poll ended` : `Lollipop - Poll active`;
+    const uniqueLabel = unique ? ' - Unique answers' : ' - Multiple answers'
 
     const embededReply = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle(`Poll: **${question}**`)
         .setAuthor({ name: author, iconURL: authorAvatar })
         .addFields(optionFields)
-        .setFooter({ text: footer, iconURL: clientAvatar })
+        .setFooter({ text: (footer + uniqueLabel), iconURL: clientAvatar })
         .setTimestamp();
 
     return embededReply;
