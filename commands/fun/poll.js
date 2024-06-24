@@ -114,6 +114,7 @@ module.exports = {
  * @param {string} author - The author of the poll.
  * @param {string} authorAvatar - The avatar of the author.
  * @param {Object} ans - The answers for the poll.
+ * @param {boolean} unique - Whether the poll andswers are unique or not
  * @param {boolean} [pollEnded=false] - Indicates whether the poll has ended.
  * @returns {Object} The embedded poll message.
  */
