@@ -324,7 +324,7 @@ module.exports = {
                 var statusMessageId = data.statusMessageId;
                 await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
                     if (msg) setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, msg, statusChannel);
-                });
+                }).catch(err => console.error);
             });
         }
 
