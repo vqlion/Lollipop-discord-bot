@@ -7,7 +7,7 @@ module.exports = {
         const messageContent = message.content;
         const guildId = message.guildId;
         const normalizedMessageContent = messageContent.normalize('NFD').replace(/\p{Diacritic}/gu, "").toLowerCase()
-        if (!normalizedMessageContent.includes("quoi") || !(special_guilds.includes(guildId))) return;
+        if (!normalizedMessageContent.includes("quoi") || !(special_guilds.feur.includes(guildId))) return;
         message.reply("fеur")
             .then()
             .catch(console.error);

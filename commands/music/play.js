@@ -115,6 +115,7 @@ module.exports = {
             });
             player = createAudioPlayer();
             connection.subscribe(player);
+            db.deleteQueue(guildId);
         } else if (connection.joinConfig.channelId !== channel.id) {
             return returnErrorMessageToUser(interaction, "You must be in the same voice channel as the bot to perform this command.");
         }
@@ -323,46 +324,34 @@ module.exports = {
                 var statusMessageId = data.statusMessageId;
                 await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
                     if (msg) setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, msg, statusChannel);
-                });
+                }).catch(err => console.error);
             });
+        }
+
+        const onDisconnect = async (oldState, newState) => {
+            db.getGuildData(guildId).then(async (data) => {
+                var statusMessageId = data.statusMessageId;
+                await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                    msg.delete().then().catch(console.error);
+                }).catch(console.error);
+            });
+            try {
+                connection.destroy();
+                player.stop();
+            } catch (error) {
+                console.error;
+            }
+            db.deleteQueue(guildId);
         }
 
         connection.on(
             VoiceConnectionStatus.Disconnected,
-            async (oldState, newState) => {
-                db.getGuildData(guildId).then(async (data) => {
-                    var statusMessageId = data.statusMessageId;
-                    await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                        msg.delete().then().catch(console.error);
-                    }).catch();
-                });
-                try {
-                    connection.destroy();
-                    player.stop();
-                } catch (error) {
-                    console.error;
-                }
-                db.deleteQueue(guildId);
-            }
+            onDisconnect
         );
 
         connection.on(
             VoiceConnectionStatus.Destroyed,
-            async (oldState, newState) => {
-                db.getGuildData(guildId).then(async (data) => {
-                    var statusMessageId = data.statusMessageId;
-                    await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                        msg.delete().then().catch(console.error);
-                    }).catch();
-                });
-                try {
-                    connection.destroy();
-                    player.stop();
-                } catch (error) {
-                    console.error;
-                }
-                db.deleteQueue(guildId);
-            }
+            onDisconnect
         )
 
         player.on("error", (error) => {
@@ -411,7 +400,7 @@ module.exports = {
                             } else
                                 setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
                         }).catch(console.error);
-                    }).catch();
+                    }).catch(console.error);
                 });
             }
         });
