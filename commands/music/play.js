@@ -333,7 +333,7 @@ module.exports = {
                 var statusMessageId = data.statusMessageId;
                 await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
                     msg.delete().then().catch(console.error);
-                }).catch();
+                }).catch(console.error);
             });
             try {
                 connection.destroy();
@@ -400,7 +400,7 @@ module.exports = {
                             } else
                                 setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
                         }).catch(console.error);
-                    }).catch();
+                    }).catch(console.error);
                 });
             }
         });

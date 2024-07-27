@@ -7,7 +7,7 @@ module.exports = {
         const messageAttachments = message.attachments
         const guildId = message.guildId;
         
-        if (messageAttachments.size == 0 || !(special_guilds.includes(guildId))) return;
+        if (messageAttachments.size == 0 || !(special_guilds.audio_message.includes(guildId))) return;
 
         const contentType = messageAttachments.at(0).contentType;
         if (!contentType) return;

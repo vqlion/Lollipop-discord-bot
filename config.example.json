@@ -1,7 +1,10 @@
 {
     "token": "<YOUR_TOKEN>",
     "clientId": "<YOUR_CLIENT_ID>",
-    "special_guilds": [],
+    "special_guilds": {
+        "feur": [],
+        "audio_message": []
+    },
     "youtube_api_key": "<YOUR_API_KEY>",
     "riot_api_key": "<YOUR_API_KEY>",
     "database_file": "<YOUR_PATH>",
