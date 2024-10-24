@@ -10,34 +10,44 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       summonerId: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        allowNull: false
       },
       riotIdGameName: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        allowNull: false
       },
       wins: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       losses: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       totalGames: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       winrate: {
-        type: Sequelize.FLOAT
+        type: Sequelize.FLOAT,
+        defaultValue: null
       },
       kills: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       deaths: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       assists: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       kda: {
-        type: Sequelize.FLOAT
+        type: Sequelize.FLOAT,
+        defaultValue: null
       },
       createdAt: {
         allowNull: false,

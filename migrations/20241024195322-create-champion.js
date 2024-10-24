@@ -10,22 +10,28 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       championId: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        allowNull: false
       },
       name: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        allowNull: false
       },
       wins: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       losses: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       totalGames: {
-        type: Sequelize.INTEGER
+        type: Sequelize.INTEGER,
+        defaultValue: 0
       },
       winrate: {
-        type: Sequelize.FLOAT
+        type: Sequelize.FLOAT,
+        defaultValue: null
       },
       createdAt: {
         allowNull: false,
