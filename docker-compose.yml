@@ -1,19 +1,40 @@
 version: '3.3'
 
 services:
-  mysql_db:
+  lollipop-db:
     image: mysql
     restart: always
     environment:
-      MYSQL_DATABASE: 'db'
-      MYSQL_USER: 'user'
-      MYSQL_PASSWORD: 'password'
-      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
       - '3306:3306'
     expose:
       - '3306'
     volumes:
-      - $HOME/lollipop-db:/var/lib/mysql
+      - db:/var/lib/mysql
+    networks:
+      lollipop-network:
+  lollipop-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lollipop-bot
+    container_name: lollipop-bot
+    depends_on:
+      - lollipop-db
+    restart: unless-stopped
+    volumes:
+      - .:/home/node/app
+      - node_modules:/home/node/app/node_modules
+    networks:
+      lollipop-network:
+
 volumes:
-  my-db:
+  db:
+  node_modules:
+
+networks:
+  lollipop-network:
