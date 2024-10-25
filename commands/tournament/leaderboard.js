@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { spawn } = require("child_process");
 
 module.exports = {
+    category: 'tournament',
     data: new SlashCommandBuilder()
         .setName("leaderboard")
         .setDescription("Shows the top 10 players from the leaderboard (players that have at least 3 games)"),

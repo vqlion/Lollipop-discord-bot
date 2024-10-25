@@ -1,9 +1,9 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { spawn } = require("child_process");
 const { Match, Champion, Summoner } = require("../../models");
 const { getMatchData } = require('./utils/helpers');
 
 module.exports = {
+    category: 'tournament',
     data: new SlashCommandBuilder()
         .setName("add_match")
         .setDescription("Adds a match to the tournament database")
@@ -35,7 +35,7 @@ module.exports = {
             return interaction.editReply(`Match ${matchId} was not found. Please check the id.`);
         }
         const match = await Match.create({ matchId: matchId });
-        console.log(matchData);
+
         const summonersData = matchData['info']['participants'];
         for (const summoner of summonersData) {
             const summonerChampionId = summoner['championId'].toString();

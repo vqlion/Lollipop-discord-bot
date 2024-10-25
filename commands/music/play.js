@@ -17,6 +17,7 @@ let nextResourceIsAvailable = true;
 const DELETE_REPLY_TIMEOUT = 5000;
 
 module.exports = {
+    category: 'music',
     data: new SlashCommandBuilder()
         .setName("play")
         .setDescription("Play any song or playlist from Youtube, or playlist from Deezer or Spotify")

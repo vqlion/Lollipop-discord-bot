@@ -3,6 +3,7 @@ const { SlashCommandBuilder, PermissionFlagsBits, ComponentType, ButtonBuilder, 
 var clientAvatar;
 
 module.exports = {
+    category: 'fun',
     data: new SlashCommandBuilder()
         .setName("poll")
         .setDescription("Create a poll")

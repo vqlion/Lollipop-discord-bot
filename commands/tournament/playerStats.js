@@ -4,6 +4,7 @@ const axios = require('axios').default;
 
 
 module.exports = {
+    category: 'tournament',
     data: new SlashCommandBuilder()
         .setName("player_stats")
         .setDescription("Returns the stats of a player")
