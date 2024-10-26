@@ -1,15 +1,16 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { spawn } = require("child_process");
-const { match } = require("assert");
+const { Match, Champion, Summoner } = require("../../models");
+const { getMatchData } = require('./utils/helpers');
 
 module.exports = {
+    category: 'tournament',
     data: new SlashCommandBuilder()
         .setName("delete_match")
         .setDescription("Deletes a match from the tournament database")
         .addStringOption((option) =>
             option
                 .setName("match_id")
-                .setDescription("The Id of the match. You can put multiple ones and separate them with a comma.")
+                .setDescription("The Id of the match.")
                 .setRequired(true)
         ),
     async execute(interaction) {
@@ -23,16 +24,54 @@ module.exports = {
 
         const matchId = interaction.options.getString("match_id");
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/delete_match.py", matchId]);
+        const matchExists = await Match.findOne({ where: { matchId: matchId } });
 
-        pythonProcess.stdout.on('data', (data) => {
-            var response = data.toString().includes("True");
-            console.log(data.toString());
-            if (response) {
-                interaction.editReply(`Match ${matchId} deleted successfully!`);
-            } else {
-                interaction.editReply("Couldn't delete your match from the database. Please check the match id.");
+        if (matchExists === null) {
+            return interaction.editReply(`Match ${matchId} is not in the database.`);
+        }
+
+        const matchData = await getMatchData(matchId);
+        if (matchData === null) {
+            return interaction.editReply(`Match ${matchId} was not found. Please check the id.`);
+        }
+        const match = await Match.destroy({ where: { matchId: matchId } });
+
+        const summonersData = matchData['info']['participants'];
+        for (const summoner of summonersData) {
+            const summonerChampionId = summoner['championId'].toString();
+
+            // champion stats
+            const championObject = await Champion.findOne({ where: { championId: summonerChampionId } });
+            if (championObject === null) {
+                continue;
             }
-        });
+            if (summoner['win']) {
+                championObject.incrementWin(-1);
+            } else {
+                championObject.incrementLoss(-1);
+            }
+
+            await championObject.save();
+
+            // summoner stats
+            const summonerId = summoner['summonerId'];
+            const summonerObject = await Summoner.findOne({ where: { summonerId: summonerId } });
+            if (summonerObject === null) {
+                continue;
+            }
+            if (summoner['win']) {
+                summonerObject.incrementWin(-1);
+            } else {
+                summonerObject.incrementLoss(-1);
+            }
+
+            summonerObject.incrementKill(-1 * summoner['kills']);
+            summonerObject.incrementDeath(-1 * summoner['deaths']);
+            summonerObject.incrementAssist(-1 * summoner['assists']);
+
+            await summonerObject.save();
+        }
+
+        return interaction.editReply(`Match ${matchId} succesfully deleted.`)
     }
 };

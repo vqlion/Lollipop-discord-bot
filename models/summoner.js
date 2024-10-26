@@ -38,6 +38,10 @@ module.exports = (sequelize, DataTypes) => {
     }
 
     updateWinrate() {
+      if (this.getDataValue('totalGames') === 0) {
+        this.set('winrate', null);
+        return;
+      }
       this.set('winrate', (this.getDataValue('wins') / this.getDataValue('totalGames') * 100));
     }
 
