@@ -1,5 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const { spawn } = require("child_process");
+const { Summoner } = require("../../models");
+const { Op } = require('sequelize');
+
+const MINIMUM_NUMBER_OF_GAMES = 3;
+const LEADERBOARD_LENGTH = 10;
 
 module.exports = {
     category: 'tournament',
@@ -14,32 +18,33 @@ module.exports = {
 
         const emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/leaderboard.py"]);
+        const leaderboard = await Summoner.findAll({
+            where: {
+                totalGames: {
+                    [Op.gte]: MINIMUM_NUMBER_OF_GAMES
+                }
+            },
+            order: [
+                ['winrate', 'DESC'],
+                ['kda', 'DESC'],
+            ],
+            limit: LEADERBOARD_LENGTH,
+        })
 
-        pythonProcess.stdout.on('data', (data) => {
-            var response = data.toString();
-            console.log(data.toString());
-            if (response.includes('False')) {
-                return interaction.editReply("Something went wrong with the command. Maybe try again later idk.");
-            }
+        const messageEmbed = new EmbedBuilder()
+            .setColor(0x0099FF)
+            .setTitle(`Leaderboard`)
+            .setAuthor({ name: memberName, iconURL: memberAvatar })
+            .setTimestamp()
+            .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
 
-            const leaderboard = JSON.parse(response);
-
-            const messageEmbed = new EmbedBuilder()
-                .setColor(0x0099FF)
-                .setTitle(`Leaderboard`)
-                .setAuthor({ name: memberName, iconURL: memberAvatar })
-                .setTimestamp()
-                .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
-
-            for (const playerIndex in leaderboard) {
-                const player = leaderboard[playerIndex];
-                const emoji = emojis[playerIndex];
-                messageEmbed.addFields(
-                    { name: `${emoji} ${player.name}`, value: `**${Math.round(player.winrate * 100) / 100}% winrate** (${player.wins}W/${player.loses}L - ${Math.round(player.kda * 100) / 100} KDA)` },
-                );
-            }
-            return interaction.editReply({ embeds: [messageEmbed] });
-        });
+        for (const summonerIndex in leaderboard) {
+            const summonerObject = leaderboard[summonerIndex];
+            const emoji = emojis[summonerIndex];
+            messageEmbed.addFields(
+                { name: `${emoji} ${summonerObject.riotIdGameName}`, value: `**${Math.round(summonerObject.winrate * 100) / 100}% winrate** (${summonerObject.wins}W/${summonerObject.losses}L - ${Math.round(summonerObject.kda * 100) / 100} KDA)` },
+            );
+        }
+        return interaction.editReply({ embeds: [messageEmbed] });
     }
 };
