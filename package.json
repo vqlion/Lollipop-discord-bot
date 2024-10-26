@@ -23,6 +23,7 @@
     "discord.js": "^14.14.1",
     "ffmpeg-static": "^5.1.0",
     "libsodium-wrappers": "^0.7.11",
+    "lodash": "^4.17.21",
     "mysql2": "^3.11.3",
     "play-dl": "^1.9.6",
     "sequelize": "^6.37.4",
