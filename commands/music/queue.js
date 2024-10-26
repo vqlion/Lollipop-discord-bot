@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { readFileSync } = require('fs');
 const db = require('./utils/dbHelpers');
 
 module.exports = {

@@ -14,7 +14,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Music.init({
-    guildId: DataTypes.STRING,
+    guildId: { type: DataTypes.STRING, allowNull: false },
     statusMessageId: DataTypes.STRING,
     currentSong: DataTypes.STRING,
     currentSongUrl: DataTypes.STRING,

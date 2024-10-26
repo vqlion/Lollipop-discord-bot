@@ -14,7 +14,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   MusicQueue.init({
-    guildId: DataTypes.STRING,
+    guildId: { type: DataTypes.STRING, allowNull: false },
     songName: DataTypes.STRING,
     songUrl: DataTypes.STRING,
     songAuthor: DataTypes.STRING,

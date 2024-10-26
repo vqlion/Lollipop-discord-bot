@@ -11,6 +11,7 @@ const {
 } = require("@discordjs/voice");
 const { youtube_api_key, spotify_client_id, spotify_client_secret } = require('../../config.json')
 const db = require('./utils/dbHelpers.js');
+const { Music, MusicQueue } = require('../../models')
 
 var clientAvatar; // Avatar (profile picture) of the bot
 let nextResourceIsAvailable = true;
@@ -38,7 +39,10 @@ module.exports = {
         const memberAvatar = interaction.member.user.avatarURL();
         clientAvatar = interaction.client.user.avatarURL();
 
-        await db.insertNewGuild(guildId);
+        var guildData = await Music.findOne({ where: { guildId: guildId } });
+        if (!guildData) {
+            guildData = await Music.create({ guildId: guildId });
+        }
 
         /**
          * ID of the status message
@@ -47,17 +51,14 @@ module.exports = {
         */
         var statusMessage; // status message mentioned earlier
 
-        await db.getGuildData(guildId).then(async (data) => {
-            var statusMessageId = data.statusMessageId;
-            if (!statusMessageId) return;
+        var statusMessageId = guildData.statusMessageId;
+        if (statusMessageId) {
             try {
-                await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                    statusMessage = msg;
-                }).catch(statusMessage = null);
+                statusMessage = await interaction.channel.messages.fetch(statusMessageId);
             } catch (error) {
                 statusMessage = null;
             }
-        });
+        }
 
         /**
          * statusChannel is the channel in which the status message is sent.
@@ -289,10 +290,8 @@ module.exports = {
                 .then()
                 .catch(console.error);
 
-            db.getGuildData(guildId).then(async (data) => {
-                setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, statusMessage, statusChannel);
-            });
-
+            statusMessageId = await setStatusMessage(guildData.currentSong, guildData.currentSongAuthor, guildData.currentSongAuthorAvatar, guildId, statusMessage, statusChannel);
+            guildData.statusMessageId = statusMessageId;
         } else {
             if (requestIsPLaylist) {
                 await sendMessageToUser(interaction, `Got it! Playing \`${playlistTitle ?? title}\` (asked by \`${memberName}\`). Adding the songs to the queue... (this might take a while)`, false);
@@ -305,14 +304,18 @@ module.exports = {
                 .catch(console.error);
 
             if (!requestIsPLaylist) db.deleteQueue(guildId);
-            db.updateCurrentSong(guildId, { songName: title, songUrl: url, songAuthor: memberName, songAuthorAvatar: memberAvatar });
+            guildData.currentSong = title;
+            guildData.currentSongUrl = url;
+            guildData.currentSongAuthor = memberName;
+            guildData.currentSongAuthorAvatar = memberAvatar;
 
             var stream = await playdl.stream(url);
             const resource = createAudioResource(stream.stream, {
                 inputType: stream.type,
             });
             player.play(resource);
-            setStatusMessage(title, memberName, memberAvatar, guildId, statusMessage, statusChannel);
+            statusMessageId = await setStatusMessage(title, memberName, memberAvatar, guildId, statusMessage, statusChannel);
+            guildData.statusMessageId = statusMessageId;
         }
 
         // delayed adding the playlist songs to the list because it takes a bit of time
@@ -321,21 +324,22 @@ module.exports = {
             if (!requestIsYoutubePlaylist) playlistVideosInfo = await getYoutubeVideoListFromTitles(playlistSongTitles);
             addPlaylistToQueue(playlistVideosInfo, memberName, memberAvatar, guildId);
             await sendMessageToUser(interaction, `Finished adding the songs from \`${playlistTitle}\` to the queue.`);
-            db.getGuildData(guildId).then(async (data) => {
-                var statusMessageId = data.statusMessageId;
-                await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                    if (msg) setStatusMessage(data.currentSong, data.currentSongAuthor, data.currentSongAuthorAvatar, guildId, msg, statusChannel);
-                }).catch(err => console.error);
-            });
+            await interaction.channel.messages.fetch(statusMessageId).then(async (msg) => {
+                if (msg) {
+                    statusMessageId = await setStatusMessage(guildData.currentSong, guildData.currentSongAuthor, guildData.currentSongAuthorAvatar, guildId, msg, statusChannel);
+                    guildData.statusMessageId = statusMessageId;
+                }
+            }).catch(err => console.error);
         }
 
+        db.updateGuildData(guildId, guildData);
+
         const onDisconnect = async (oldState, newState) => {
-            db.getGuildData(guildId).then(async (data) => {
-                var statusMessageId = data.statusMessageId;
-                await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
-                    msg.delete().then().catch(console.error);
-                }).catch(console.error);
-            });
+            let guildData = await Music.findOne({ where: { guildId: guildId } });
+            statusMessageId = guildData.statusMessageId;
+            await interaction.channel.messages.fetch(statusMessageId).then((msg) => {
+                msg.delete().then().catch(console.error);
+            }).catch(console.error);
             try {
                 connection.destroy();
                 player.stop();
@@ -382,27 +386,41 @@ module.exports = {
                     }, 100);
                 }
 
-                db.getGuildData(guildId).then(async (data) => {
-                    var statusMessageId = data.statusMessageId;
-                    await interaction.channel.messages.fetch(statusMessageId).then(async (statusMessage) => {
-                        setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage, statusChannel);
+                let guildData = await Music.findOne({ where: { guildId: guildId } });
+                statusMessageId = guildData.statusMessageId;
+                await interaction.channel.messages.fetch(statusMessageId).then(async (statusMessage) => {
+                    statusMessageId = await setStatusMessage("Skipping...", "...", clientAvatar, guildId, statusMessage, statusChannel);
 
-                        db.getFirstSongInQueue(guildId).then(async (firstSong) => {
-                            if (firstSong) {
-                                db.deleteFirstSongInQueue(guildId);
-                                var stream = await playdl.stream(firstSong.songUrl);
-                                const resource = createAudioResource(stream.stream, {
-                                    inputType: stream.type,
-                                });
-                                player.play(resource);
-                                db.updateCurrentSong(guildId, firstSong);
+                    db.getFirstSongInQueue(guildId).then(async (firstSong) => {
+                        const newGuildData = {
+                            statusMessageId: guildData.statusMessageId,
+                            currentSong: guildData.currentSong,
+                            currentSongUrl: guildData.currentSongUrl,
+                            currentSongAuthor: guildData.currentSongAuthor,
+                            currentSongAuthorAvatar: guildData.currentSongAuthorAvatar,
+                        }
+                        if (firstSong) {
+                            db.deleteSongInQueue(guildId, firstSong.id);
+                            var stream = await playdl.stream(firstSong.songUrl);
+                            const resource = createAudioResource(stream.stream, {
+                                inputType: stream.type,
+                            });
+                            player.play(resource);
+                            newGuildData.currentSong = firstSong.songName;
+                            newGuildData.currentSongUrl = firstSong.songUrl;
+                            newGuildData.currentSongAuthor = firstSong.songAuthor;
+                            newGuildData.currentSongAuthorAvatar = firstSong.songAuthorAvatar;
 
-                                setStatusMessage(firstSong.songName, firstSong.songAuthor, firstSong.songAuthorAvatar, guildId, statusMessage, statusChannel);
-                            } else
-                                setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
-                        }).catch(console.error);
+                            statusMessageId = await setStatusMessage(firstSong.songName, firstSong.songAuthor, firstSong.songAuthorAvatar, guildId, statusMessage, statusChannel);
+                            newGuildData.statusMessageId = statusMessageId;
+                        } else {
+                            statusMessageId = await setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
+                            newGuildData.statusMessageId = statusMessageId;
+
+                        }
+                        db.updateGuildData(guildId, newGuildData);
                     }).catch(console.error);
-                });
+                }).catch(console.error);
             }
         });
     },
@@ -676,6 +694,7 @@ async function addPlaylistToQueue(playlist, author, authorAvatar, guildId) {
         var url = playlist[entry].url;
         var title = playlist[entry].title;
         tmp.push({
+            guildId: guildId,
             songName: title,
             songUrl: url,
             songAuthor: author,
@@ -718,7 +737,7 @@ async function setStatusMessage(currentTitle, author, authorAvatar, guildId, sta
             statusMessage = msg;
         }).catch(console.error);
     }
-    db.updateStatusMessageId(guildId, statusMessage.id);
+    return statusMessage.id;
 }
 
 /**

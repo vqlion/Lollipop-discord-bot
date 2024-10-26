@@ -4,6 +4,7 @@ services:
   lollipop-db:
     image: mysql
     restart: always
+    container_name: lollipop-bot-db
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}

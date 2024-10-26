@@ -10,7 +10,8 @@ module.exports = {
         type: Sequelize.INTEGER
       },
       guildId: {
-        type: Sequelize.STRING
+        type: Sequelize.STRING,
+        allowNull: false,
       },
       songName: {
         type: Sequelize.STRING
