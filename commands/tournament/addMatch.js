@@ -41,11 +41,10 @@ module.exports = {
             const summonerChampionId = summoner['championId'].toString();
 
             // champion stats
-            const championExists = await Champion.findOne({ where: { championId: summonerChampionId } });
-            if (championExists === null) {
-                await Champion.create({ championId: summonerChampionId, name: summoner['championName'] });
+            let championObject = await Champion.findOne({ where: { championId: summonerChampionId } });
+            if (championObject === null) {
+                championObject = await Champion.create({ championId: summonerChampionId, name: summoner['championName'] });
             }
-            const championObject = await Champion.findOne({ where: { championId: summonerChampionId } });
             if (summoner['win']) {
                 championObject.incrementWin(1);
             } else {
@@ -56,11 +55,10 @@ module.exports = {
 
             // summoner stats
             const summonerId = summoner['summonerId'];
-            const summonerExists = await Summoner.findOne({ where: { summonerId: summonerId } });
-            if (summonerExists === null) {
-                await Summoner.create({ summonerId: summonerId, riotIdGameName: summoner['riotIdGameName'] });
+            let summonerObject = await Summoner.findOne({ where: { summonerId: summonerId } });
+            if (summonerObject === null) {
+                summonerObject = await Summoner.create({ summonerId: summonerId, riotIdGameName: summoner['riotIdGameName'] });
             }
-            const summonerObject = await Summoner.findOne({ where: { summonerId: summonerId } });
             if (summoner['win']) {
                 summonerObject.incrementWin(1);
             } else {

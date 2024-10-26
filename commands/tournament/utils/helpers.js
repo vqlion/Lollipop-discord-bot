@@ -1,9 +1,12 @@
 const axios = require('axios').default;
+const _ = require("lodash");
 
 const { riot_api_key } = require('../../../config.json')
 
 module.exports = {
-    getMatchData
+    getMatchData,
+    getChampionKeyAndId,
+    getLeagueVersion,
 }
 
 async function getMatchData(matchId) {
@@ -11,7 +14,28 @@ async function getMatchData(matchId) {
     try {
         const response = await axios.get(url);
         if (response.status === 200) return response.data;
+        return null;
     } catch (error) {
         return null;
     }
+}
+
+async function getChampionKeyAndId(championName, version) {
+    championName = _.camelCase(championName).toLowerCase();
+    const champions = await axios.get(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`);
+    const championData = Object.values(champions.data.data).find((c) => _.camelCase(c.name).toLowerCase() === championName);
+    if (!championData) return [null, null];
+    return [championData.key, championData.id];
+}
+
+async function getLeagueVersion() {
+    try {
+        const versionRes = await axios.get('https://ddragon.leagueoflegends.com/api/versions.json');
+        if (versionRes.status === 200) return versionRes.data[0];
+        return null;
+    } catch (error) {
+        return null;
+    }
+
+
 }

@@ -1,7 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { spawn } = require("child_process");
 const axios = require('axios').default;
-
+const { getChampionKeyAndId, getLeagueVersion } = require('./utils/helpers');
+const { Match, Champion, Summoner } = require("../../models");
+const { Op } = require('sequelize');
 
 module.exports = {
     category: 'tournament',
@@ -21,36 +23,36 @@ module.exports = {
         const memberAvatar = interaction.member.user.avatarURL();
 
         const championName = interaction.options.getString("name");
+        const leagueVersion = await getLeagueVersion();
+        const [championId, championInternalName] = await getChampionKeyAndId(championName, leagueVersion);
+        if (!championId) {
+            return interaction.editReply("Couldn't find the champion you're looking for.")
+        }
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/champion_stats.py", championName]);
-
-        pythonProcess.stdout.on('data', (data) => {
-            const response = data.toString();
-            console.log(data.toString());
-            if (response.includes('False')) {
-                return interaction.editReply("Couldn't find the champion you're looking for. They may not be in the database if no one has played them yet.");
+        const championObject = await Champion.findOne({
+            where: {
+                championId: championId,
+                totalGames: {
+                    [Op.gt]: 0,
+                }
             }
+        })
 
-            const stats = JSON.parse(response);
+        if (championObject === null) {
+            return interaction.editReply(`${championName} is not in the database yet.`)
+        }
 
-            axios.get('https://ddragon.leagueoflegends.com/api/versions.json')
-                .then((response) => {
-                    const version = response.data[0];
-
-                    const messageEmbed = new EmbedBuilder()
-                        .setColor(0x0099FF)
-                        .setTitle(`${stats.name}`)
-                        .setThumbnail(`https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${stats.name}.png`)
-                        .setAuthor({ name: memberName, iconURL: memberAvatar })
-                        .addFields(
-                            { name: 'Winrate', value: `**${Math.round(stats.winrate * 100) / 100}%** (${stats.wins}/${stats.loses})` },
-                        )
-                        .setTimestamp()
-                        .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
-                    return interaction.editReply({ embeds: [messageEmbed] });
-                })
-                .catch((error) => { console.error });
-        });
+        const messageEmbed = new EmbedBuilder()
+            .setColor(0x0099FF)
+            .setTitle(`${championObject.name}`)
+            .setThumbnail(`https://ddragon.leagueoflegends.com/cdn/${leagueVersion}/img/champion/${championInternalName}.png`)
+            .setAuthor({ name: memberName, iconURL: memberAvatar })
+            .addFields(
+                { name: 'Winrate', value: `**${Math.round(championObject.winrate * 100) / 100}%** (${championObject.wins}W/${championObject.losses}L)` },
+            )
+            .setTimestamp()
+            .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
+        return interaction.editReply({ embeds: [messageEmbed] });
 
     }
 };
