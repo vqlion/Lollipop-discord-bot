@@ -1,8 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const { spawn } = require("child_process");
 const axios = require('axios').default;
 const { getChampionKeyAndId, getLeagueVersion } = require('./utils/helpers');
-const { Match, Champion, Summoner } = require("../../models");
+const { Champion } = require("../../models");
 const { Op } = require('sequelize');
 
 module.exports = {

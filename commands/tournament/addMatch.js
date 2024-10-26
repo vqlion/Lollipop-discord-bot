@@ -68,6 +68,7 @@ module.exports = {
             summonerObject.incrementKill(summoner['kills']);
             summonerObject.incrementDeath(summoner['deaths']);
             summonerObject.incrementAssist(summoner['assists']);
+            summonerObject.riotIdGameName = summoner['riotIdGameName'];
 
             await summonerObject.save();
         }

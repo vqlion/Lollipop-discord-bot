@@ -1,7 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const { spawn } = require("child_process");
 const axios = require('axios').default;
-
+const { getSummonerPuuid, getSummonerInfo } = require('./utils/helpers');
+const { Summoner } = require("../../models");
+const { Op } = require('sequelize');
 
 module.exports = {
     category: 'tournament',
@@ -29,37 +30,46 @@ module.exports = {
         const summonerName = interaction.options.getString("name");
         const summonerTag = interaction.options.getString("tag");
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/player_stats.py", summonerName, summonerTag]);
+        const summonerPuuid = await getSummonerPuuid(summonerName, summonerTag);
 
-        pythonProcess.stdout.on('data', (data) => {
-            const response = data.toString();
-            console.log(data.toString());
-            if (response.includes('False')) {
-                return interaction.editReply("Couldn't find the player you're looking for. Please check the summoner's name and tag.");
+        if (!summonerPuuid) {
+            return interaction.editReply("Couldn't find the player you're looking for. Please check the summoner's name and tag.");
+        }
+
+        const summonerInfo = await getSummonerInfo(summonerPuuid);
+
+        const summonerObject = await Summoner.findOne({
+            where: {
+                summonerId: summonerInfo.id,
+                totalGames: {
+                    [Op.gt]: 0,
+                }
             }
-
-            const stats = JSON.parse(response);
-
-            axios.get('https://ddragon.leagueoflegends.com/api/versions.json')
-                .then((response) => {
-                    const version = response.data[0];
-
-                    const messageEmbed = new EmbedBuilder()
-                        .setColor(0x0099FF)
-                        .setTitle(`${stats.name}#${summonerTag}`)
-                        .setThumbnail(`https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${stats.icon_id}.png`)
-                        .setAuthor({ name: memberName, iconURL: memberAvatar })
-                        .addFields(
-                            { name: 'Winrate', value: `**${Math.round(stats.winrate * 100) / 100}%** (${stats.wins}/${stats.loses})` },
-                            { name: 'Number of games', value: `**${stats.total_games}**` },
-                            { name: 'KDA', value: `**${Math.round(stats.kda * 100) / 100}** (${stats.kills}/${stats.deaths}/${stats.assists})` },
-                        )
-                        .setTimestamp()
-                        .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
-                    return interaction.editReply({ embeds: [messageEmbed] });
-                })
-                .catch((error) => { console.error });
         });
+
+        if (!summonerObject) {
+            return interaction.editReply("This player is not in the database yet.");
+        }
+
+        axios.get('https://ddragon.leagueoflegends.com/api/versions.json')
+            .then((response) => {
+                const version = response.data[0];
+
+                const messageEmbed = new EmbedBuilder()
+                    .setColor(0x0099FF)
+                    .setTitle(`${summonerObject.riotIdGameName}#${summonerTag}`)
+                    .setThumbnail(`https://ddragon.leagueoflegends.com/cdn/${version}/img/profileicon/${summonerInfo.profileIconId}.png`)
+                    .setAuthor({ name: memberName, iconURL: memberAvatar })
+                    .addFields(
+                        { name: 'Winrate', value: `**${Math.round(summonerObject.winrate * 100) / 100}%** (${summonerObject.wins}W/${summonerObject.losses}L)` },
+                        { name: 'Number of games', value: `**${summonerObject.totalGames}**` },
+                        { name: 'KDA', value: `**${Math.round(summonerObject.kda * 100) / 100}** (${summonerObject.kills}/${summonerObject.deaths}/${summonerObject.assists})` },
+                    )
+                    .setTimestamp()
+                    .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
+                return interaction.editReply({ embeds: [messageEmbed] });
+            })
+            .catch((error) => { console.error });
 
     }
 };
