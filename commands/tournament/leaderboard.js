@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
-const { Summoner } = require("../../models");
+const { Summoner, Match } = require("../../models");
 const { Op } = require('sequelize');
 
 const MINIMUM_NUMBER_OF_GAMES = 3;
@@ -31,12 +31,14 @@ module.exports = {
             limit: LEADERBOARD_LENGTH,
         })
 
+        const totalMatches = await Match.count();
+
         const messageEmbed = new EmbedBuilder()
             .setColor(0x0099FF)
             .setTitle(`Leaderboard`)
             .setAuthor({ name: memberName, iconURL: memberAvatar })
             .setTimestamp()
-            .setFooter({ text: 'Lollipop', iconURL: clientAvatar });
+            .setFooter({ text: 'Lollipop' + ` - ${totalMatches} games saved`, iconURL: clientAvatar });
 
         for (const summonerIndex in leaderboard) {
             const summonerObject = leaderboard[summonerIndex];
