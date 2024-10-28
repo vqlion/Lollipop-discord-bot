@@ -2,18 +2,17 @@
 const {
   Model
 } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  class Summoner extends Model {
+  class SummonerChampion extends Model {
     /**
      * Helper method for defining associations.
      * This method is not a part of Sequelize lifecycle.
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      Summoner.belongsToMany(models.Champion, {
-        through: models.SummonerChampion,
-      });
-      Summoner.hasMany(models.SummonerChampion);
+      SummonerChampion.belongsTo(models.Champion);
+      SummonerChampion.belongsTo(models.Summoner);
     }
 
     incrementWin(n) {
@@ -53,9 +52,23 @@ module.exports = (sequelize, DataTypes) => {
       this.set('kda', kda);
     }
   }
-  Summoner.init({
-    id: { type: DataTypes.STRING, allowNull: false, unique: true, primaryKey: true },
-    riotIdGameName: { type: DataTypes.STRING, allowNull: false },
+  SummonerChampion.init({
+    SummonerId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      references: {
+        model: sequelize.models.Summoner,
+        key: 'id'
+      }
+    },
+    ChampionId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      references: {
+        model: sequelize.models.Champion,
+        key: 'id'
+      }
+    },
     wins: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
@@ -76,7 +89,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     totalGames: { type: DataTypes.INTEGER, defaultValue: 0 },
     winrate: { type: DataTypes.FLOAT, defaultValue: null },
-    kills: {
+    kills: { 
       type: DataTypes.INTEGER,
       defaultValue: 0,
       set(value) {
@@ -84,7 +97,7 @@ module.exports = (sequelize, DataTypes) => {
         this.updateKda();
       }
     },
-    deaths: {
+    deaths: { 
       type: DataTypes.INTEGER,
       defaultValue: 0,
       set(value) {
@@ -92,7 +105,7 @@ module.exports = (sequelize, DataTypes) => {
         this.updateKda();
       }
     },
-    assists: {
+    assists: { 
       type: DataTypes.INTEGER,
       defaultValue: 0,
       set(value) {
@@ -103,7 +116,7 @@ module.exports = (sequelize, DataTypes) => {
     kda: { type: DataTypes.FLOAT, defaultValue: null },
   }, {
     sequelize,
-    modelName: 'Summoner',
+    modelName: 'SummonerChampion',
   });
-  return Summoner;
+  return SummonerChampion;
 };

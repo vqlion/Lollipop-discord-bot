@@ -2,48 +2,44 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Summoners', {
+    await queryInterface.createTable('SummonerChampions', {
       id: {
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.INTEGER
+      },
+      SummonerId: {
         type: Sequelize.STRING,
         allowNull: false,
-        unique: true,
-        primaryKey: true
       },
-      riotIdGameName: {
+      ChampionId: {
         type: Sequelize.STRING,
-        allowNull: false
+        allowNull: false,
       },
       wins: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
+        type: Sequelize.INTEGER
       },
       losses: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
+        type: Sequelize.INTEGER
       },
       totalGames: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
+        type: Sequelize.INTEGER
       },
       winrate: {
-        type: Sequelize.FLOAT,
-        defaultValue: null
+        type: Sequelize.FLOAT
       },
       kills: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
+        type: Sequelize.INTEGER
       },
       deaths: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
+        type: Sequelize.INTEGER
       },
       assists: {
-        type: Sequelize.INTEGER,
-        defaultValue: 0
+        type: Sequelize.INTEGER
       },
       kda: {
-        type: Sequelize.FLOAT,
-        defaultValue: null
+        type: Sequelize.FLOAT
       },
       createdAt: {
         allowNull: false,
@@ -56,6 +52,6 @@ module.exports = {
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Summoners');
+    await queryInterface.dropTable('SummonerChampions');
   }
 };

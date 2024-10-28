@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { Match, Champion, Summoner } = require("../../models");
+const { Match, Champion, Summoner, SummonerChampion } = require("../../models");
 const { getMatchData } = require('./utils/helpers');
 
 module.exports = {
@@ -41,9 +41,9 @@ module.exports = {
             const summonerChampionId = summoner['championId'].toString();
 
             // champion stats
-            let championObject = await Champion.findOne({ where: { championId: summonerChampionId } });
+            let championObject = await Champion.findOne({ where: { id: summonerChampionId } });
             if (championObject === null) {
-                championObject = await Champion.create({ championId: summonerChampionId, name: summoner['championName'] });
+                championObject = await Champion.create({ id: summonerChampionId, name: summoner['championName'] });
             }
             if (summoner['win']) {
                 championObject.incrementWin(1);
@@ -51,13 +51,11 @@ module.exports = {
                 championObject.incrementLoss(1);
             }
 
-            await championObject.save();
-
             // summoner stats
             const summonerId = summoner['summonerId'];
-            let summonerObject = await Summoner.findOne({ where: { summonerId: summonerId } });
+            let summonerObject = await Summoner.findOne({ where: { id: summonerId }, include: Champion });
             if (summonerObject === null) {
-                summonerObject = await Summoner.create({ summonerId: summonerId, riotIdGameName: summoner['riotIdGameName'] });
+                summonerObject = await Summoner.create({ id: summonerId, riotIdGameName: summoner['riotIdGameName'] });
             }
             if (summoner['win']) {
                 summonerObject.incrementWin(1);
@@ -70,6 +68,30 @@ module.exports = {
             summonerObject.incrementAssist(summoner['assists']);
             summonerObject.riotIdGameName = summoner['riotIdGameName'];
 
+            // summoner <-> champion stats
+            let summonerChampionObject = await SummonerChampion.findOne({
+                where: {
+                    summonerId: summonerId,
+                    championId: summonerChampionId,
+                }
+            });
+
+            if (summonerChampionObject === null) {
+                summonerChampionObject = await SummonerChampion.create({ SummonerId: summonerId, ChampionId: summonerChampionId });
+            }
+
+            if (summoner['win']) {
+                summonerChampionObject.incrementWin(1);
+            } else {
+                summonerChampionObject.incrementLoss(1);
+            }
+
+            summonerChampionObject.incrementKill(summoner['kills']);
+            summonerChampionObject.incrementDeath(summoner['deaths']);
+            summonerChampionObject.incrementAssist(summoner['assists']);
+
+            await summonerChampionObject.save();
+            await championObject.save();
             await summonerObject.save();
         }
 

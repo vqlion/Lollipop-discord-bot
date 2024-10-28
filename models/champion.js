@@ -10,7 +10,10 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
+      Champion.belongsToMany(models.Summoner, {
+        through: models.SummonerChampion,
+      });
+      Champion.hasMany(models.SummonerChampion);
     }
 
     incrementWin(n) {
@@ -34,7 +37,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   }
   Champion.init({
-    championId: { type: DataTypes.STRING, allowNull: false },
+    id: { type: DataTypes.STRING, allowNull: false, unique: true, primaryKey: true },
     name: { type: DataTypes.STRING, allowNull: false },
     wins: {
       type: DataTypes.INTEGER,

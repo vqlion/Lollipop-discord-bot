@@ -30,7 +30,7 @@ module.exports = {
 
         const championObject = await Champion.findOne({
             where: {
-                championId: championId,
+                id: championId,
                 totalGames: {
                     [Op.gt]: 0,
                 }

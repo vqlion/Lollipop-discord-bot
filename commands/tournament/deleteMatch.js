@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { Match, Champion, Summoner } = require("../../models");
+const { Match, Champion, Summoner, SummonerChampion } = require("../../models");
 const { getMatchData } = require('./utils/helpers');
 
 module.exports = {
@@ -41,7 +41,7 @@ module.exports = {
             const summonerChampionId = summoner['championId'].toString();
 
             // champion stats
-            const championObject = await Champion.findOne({ where: { championId: summonerChampionId } });
+            const championObject = await Champion.findOne({ where: { id: summonerChampionId } });
             if (championObject === null) {
                 continue;
             }
@@ -50,12 +50,10 @@ module.exports = {
             } else {
                 championObject.incrementLoss(-1);
             }
-
-            await championObject.save();
-
+            
             // summoner stats
             const summonerId = summoner['summonerId'];
-            const summonerObject = await Summoner.findOne({ where: { summonerId: summonerId } });
+            const summonerObject = await Summoner.findOne({ where: { id: summonerId } });
             if (summonerObject === null) {
                 continue;
             }
@@ -69,6 +67,30 @@ module.exports = {
             summonerObject.incrementDeath(-1 * summoner['deaths']);
             summonerObject.incrementAssist(-1 * summoner['assists']);
 
+            // summoner <-> champion stats
+            const summonerChampionObject = await SummonerChampion.findOne({
+                where: {
+                    summonerId: summonerId,
+                    championId: summonerChampionId,
+                }
+            });
+
+            if (summonerChampionObject === null) {
+                continue;
+            }
+
+            if (summoner['win']) {
+                summonerChampionObject.incrementWin(-1);
+            } else {
+                summonerChampionObject.incrementLoss(-1);
+            }
+
+            summonerChampionObject.incrementKill(-1 * summoner['kills']);
+            summonerChampionObject.incrementDeath(-1 * summoner['deaths']);
+            summonerChampionObject.incrementAssist(-1 * summoner['assists']);
+
+            await summonerChampionObject.save();
+            await championObject.save();
             await summonerObject.save();
         }
 

@@ -40,7 +40,7 @@ module.exports = {
 
         const summonerObject = await Summoner.findOne({
             where: {
-                summonerId: summonerInfo.id,
+                id: summonerInfo.id,
                 totalGames: {
                     [Op.gt]: 0,
                 }
