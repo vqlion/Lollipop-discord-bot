@@ -8,6 +8,7 @@ module.exports = {
     getSummonerPuuid,
     getSummonerInfo,
     getChampionKeyAndId,
+    getChampionNameFromId,
     getLeagueVersion,
 }
 
@@ -50,6 +51,13 @@ async function getChampionKeyAndId(championName, version) {
     const championData = Object.values(champions.data.data).find((c) => _.camelCase(c.name).toLowerCase() === championName);
     if (!championData) return [null, null];
     return [championData.key, championData.id];
+}
+
+async function getChampionNameFromId(championId, version) {
+    const champions = await axios.get(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`);
+    const championData = Object.values(champions.data.data).find((c) => c.key === championId);
+    if (!championData) return null;
+    return championData.name;
 }
 
 async function getLeagueVersion() {
