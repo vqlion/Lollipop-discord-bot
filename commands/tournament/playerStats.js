@@ -90,7 +90,7 @@ module.exports = {
                 for (const championIndex in summonerTopChampions) {
                     const championObject = summonerTopChampions[championIndex];
                     const emoji = emojis[championIndex];
-                    const championName = await getChampionNameFromId(championObject.ChampionId, version);
+                    const championName = await getChampionNameFromId(championObject.ChampionId, version); // some champions have weird name :(
                     if (!championName) continue;
                     messageEmbed.addFields({
                         name: `${emoji} ${championName}`,
