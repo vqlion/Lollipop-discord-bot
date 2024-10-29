@@ -3,6 +3,7 @@ version: '3.3'
 services:
   lollipop-db:
     image: mysql
+    user: root
     restart: always
     container_name: lollipop-bot-db
     environment:
@@ -23,6 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: lollipop-bot
+    user: root
     depends_on:
       - lollipop-db
     restart: unless-stopped
