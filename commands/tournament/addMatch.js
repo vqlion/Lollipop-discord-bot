@@ -1,14 +1,16 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { spawn } = require("child_process");
+const { Match, Champion, Summoner, SummonerChampion } = require("../../models");
+const { getMatchData } = require('./utils/helpers');
 
 module.exports = {
+    category: 'tournament',
     data: new SlashCommandBuilder()
         .setName("add_match")
         .setDescription("Adds a match to the tournament database")
         .addStringOption((option) =>
             option
                 .setName("match_id")
-                .setDescription("The Id of the match. You can put multiple ones and separate them with a comma.")
+                .setDescription("The Id of the match.")
                 .setRequired(true)
         ),
     async execute(interaction) {
@@ -22,16 +24,78 @@ module.exports = {
 
         const matchId = interaction.options.getString("match_id");
 
-        const pythonProcess = spawn('python3', ["./commands/tournament/utils/add_match.py", matchId]);
+        const matchExists = await Match.findOne({ where: { matchId: matchId } });
 
-        pythonProcess.stdout.on('data', (data) => {
-            var response = data.toString().includes("True");
-            console.log(data.toString());
-            if (response) {
-                interaction.editReply(`Match ${matchId} added successfully!`);
-            } else {
-                interaction.editReply("Couldn't add your match to the database. Please check the match id.");
+        if (matchExists instanceof Match) {
+            return interaction.editReply(`Match ${matchId} is already in the database.`);
+        }
+
+        const matchData = await getMatchData(matchId);
+        if (matchData === null) {
+            return interaction.editReply(`Match ${matchId} was not found. Please check the id.`);
+        }
+        const match = await Match.create({ matchId: matchId });
+
+        const summonersData = matchData['info']['participants'];
+        for (const summoner of summonersData) {
+            const summonerChampionId = summoner['championId'].toString();
+
+            // champion stats
+            let championObject = await Champion.findOne({ where: { id: summonerChampionId } });
+            if (championObject === null) {
+                championObject = await Champion.create({ id: summonerChampionId, name: summoner['championName'] });
             }
-        });
+            if (summoner['win']) {
+                championObject.incrementWin(1);
+            } else {
+                championObject.incrementLoss(1);
+            }
+
+            // summoner stats
+            const summonerId = summoner['summonerId'];
+            let summonerObject = await Summoner.findOne({ where: { id: summonerId }, include: Champion });
+            if (summonerObject === null) {
+                summonerObject = await Summoner.create({ id: summonerId, riotIdGameName: summoner['riotIdGameName'] });
+            }
+            if (summoner['win']) {
+                summonerObject.incrementWin(1);
+            } else {
+                summonerObject.incrementLoss(1);
+            }
+
+            summonerObject.incrementKill(summoner['kills']);
+            summonerObject.incrementDeath(summoner['deaths']);
+            summonerObject.incrementAssist(summoner['assists']);
+            summonerObject.riotIdGameName = summoner['riotIdGameName'];
+
+            // summoner <-> champion stats
+            let summonerChampionObject = await SummonerChampion.findOne({
+                where: {
+                    summonerId: summonerId,
+                    championId: summonerChampionId,
+                }
+            });
+
+            if (summonerChampionObject === null) {
+                summonerChampionObject = await SummonerChampion.create({ SummonerId: summonerId, ChampionId: summonerChampionId });
+            }
+
+            if (summoner['win']) {
+                summonerChampionObject.incrementWin(1);
+            } else {
+                summonerChampionObject.incrementLoss(1);
+            }
+
+            summonerChampionObject.incrementKill(summoner['kills']);
+            summonerChampionObject.incrementDeath(summoner['deaths']);
+            summonerChampionObject.incrementAssist(summoner['assists']);
+
+            await summonerChampionObject.save();
+            await championObject.save();
+            await summonerObject.save();
+        }
+
+        return interaction.editReply(`Match ${matchId} succesfully saved.`)
+
     }
 };

@@ -7,3 +7,4 @@ start-bot.sh
 data/
 __pycache__/
 .vscode/
+.env

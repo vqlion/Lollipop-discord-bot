@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField } = require("discord.js");
 
 module.exports = {
+    category: 'moderation',
     data: new SlashCommandBuilder()
         .setName("purge")
         .setDescription("Deletes the last messages (max 100)")

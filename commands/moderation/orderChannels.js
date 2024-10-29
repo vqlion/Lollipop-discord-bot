@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ButtonBuilder, ButtonStyle, ActionRowBuilder, ChannelType } = require("discord.js");
 
 module.exports = {
+    category: 'moderation',
     data: new SlashCommandBuilder()
         .setName("order_channels")
         .setDescription("Orders the channels of the current category alphabetically.")

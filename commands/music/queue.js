@@ -1,8 +1,8 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { readFileSync } = require('fs');
 const db = require('./utils/dbHelpers');
 
 module.exports = {
+    category: 'music',
     data: new SlashCommandBuilder()
         .setName("queue")
         .setDescription("Check all the songs in the music queue"),

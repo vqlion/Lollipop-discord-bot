@@ -4,8 +4,8 @@
   "description": "Lollipop discord bot, a discord bot to play music and more.",
   "main": "index.js",
   "scripts": {
-    "prestart": "echo '' >> ~/logs/lollipop_prestart_logs && echo '----' >> ~/logs/lollipop_prestart_logs && date >> ~/logs/lollipop_prestart_logs && node deploy-commands.js >> ~/logs/lollipop_prestart_logs 2>&1",
-    "start": "echo '' >> ~/logs/lollipop_logs && echo '----' >> ~/logs/lollipop_logs && date >> ~/logs/lollipop_logs && node index.js >> ~/logs/lollipop_logs 2>&1 & echo $! > ~/pids/lollipop.pid"
+    "prestart": "node deploy-commands.js",
+    "start": "node index.js"
   },
   "repository": {
     "type": "git",
@@ -21,9 +21,16 @@
     "@discordjs/voice": "^0.16.0",
     "axios": "^1.6.7",
     "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
     "ffmpeg-static": "^5.1.0",
     "libsodium-wrappers": "^0.7.11",
+    "lodash": "^4.17.21",
+    "mysql2": "^3.11.3",
     "play-dl": "^1.9.6",
+    "sequelize": "^6.37.4",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "sequelize-cli": "^6.6.2"
   }
 }

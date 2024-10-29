@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 
 module.exports = {
+    category: 'moderation',
     data: new SlashCommandBuilder()
         .setName("protect")
         .setDescription("Protects the server from a raid. Blocks all text and audio channels.")

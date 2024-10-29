@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 
 module.exports = {
+    category: 'moderation',
     data: new SlashCommandBuilder()
         .setName("delete_channels")
         .setDescription("Deletes all the channels in the category")

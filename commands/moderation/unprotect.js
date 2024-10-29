@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 
 module.exports = {
+    category: 'moderation',
     data: new SlashCommandBuilder()
         .setName("unprotect")
         .setDescription("Resets the server after a protection. All the channels regain their default permissions.")

@@ -1,39 +1,42 @@
-name: CD
+name: deploy
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
   push:
     branches: ["master"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   build:
     runs-on: self-hosted
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
-      - name: Create config json file
+      - name: Create config file
         uses: jsdaniell/create-json@v1.2.3
         with:
           name: "config.json"
           json: ${{ secrets.CONFIG_JSON }}
 
-      - name: Kill the former process
+      - name: Create database config file
+        uses: jsdaniell/create-json@v1.2.3
+        with:
+          name: "config_db.json"
+          json: ${{ secrets.CONFIG_DB_JSON }}
+
+      - name: Move database config file
         run: |
-          if test -f ~/pids/lollipop.pid; then
-              echo "pid file exists, checking process"
-              kill -0 $(cat ~/pids/lollipop.pid) &> /dev/null && (kill -9 $(cat ~/pids/lollipop.pid) && echo "process was killed") || echo "process was not running"
-          fi
+          mkdir -p config
+          mv config_db.json config/config.json
 
-      - name: Install dependencies
-        run: npm install
+      - name: Create .env file
+        run: echo ${{ secrets.PROD_ENV_FILE }} > .env
 
-      - name: Start the bot
-        run: RUNNER_TRACKING_ID="" && npm start
+      - name: Down the former version of the bot
+        run: |
+          docker compose logs -t >> ~/logs/lollipop.log
+          docker compose down
+
+      - name: Launch the bot
+        run: |
+          docker compose build
+          docker compose up -d

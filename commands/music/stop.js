@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require("discord.js");
 const { getVoiceConnection } = require("@discordjs/voice");
 
 module.exports = {
+    category: 'music',
     data: new SlashCommandBuilder()
         .setName("stop")
         .setDescription("Stops the current song and disconnects the bot"),
