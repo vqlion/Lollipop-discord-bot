@@ -22,7 +22,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: lollipop-bot
     container_name: lollipop-bot
     depends_on:
       - lollipop-db
