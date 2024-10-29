@@ -1,6 +1,6 @@
 # Lollipop-discord-bot
 
-Lollipop is a discord bot that plays music and tracks League Of Legends games results. Built with [discord.js](https://discord.js.org/), python and sqlite3.
+Lollipop is a discord bot that plays music and tracks League Of Legends games results. Built with [discord.js](https://discord.js.org/) and mysql.
 
 ## Features
 
@@ -28,7 +28,7 @@ The bot is able to track League of Legends games from a 'tournament'. We use tha
   - Display the leaderboard
   - Display the stats of a player
   - Display the stats of a champion
-- Misc (only applie to guilds marked as special guild in ```config.json```)
+- Misc (only applies to guilds marked as special guild in ```config.json```)
   - Deletes any voice message on the server (the feature we all wanted)
   - Responds "feur" to any message with "quoi"
 
@@ -46,15 +46,12 @@ Create a file name ```config.json``` based on the ```config.example.json```. You
  - a [spotify API key](https://developer.spotify.com/documentation/web-api)
  - a [riot games API key](https://developer.riotgames.com/) (for tournament features)
 
-Install the dependencies and run the bot:
+Run the bot:
 ```bash
-npm install
-npm start
+docker compose up
 ```
 
 ## Team
 
 <a href="https://github.com/vqlion"><img src="https://avatars.githubusercontent.com/u/104720049?v=4" width="75"></a>
 <a href="https://github.com/Yayadelaplaya/"><img src="https://avatars.githubusercontent.com/u/81352733?v=4" width="75"></a> 
-<a href="https://github.com/LordOfGnou/"><img src="https://avatars.githubusercontent.com/u/83947403?v=4" width="75"></a> 
-<a href="https://github.com/fkyro/"><img src="https://avatars.githubusercontent.com/u/94193573?v=4" width="75"></a> 

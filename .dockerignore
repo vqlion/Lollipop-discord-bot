@@ -1,6 +1,15 @@
-node_modules
+node_modules/
 npm-debug.log
 Dockerfile
 .dockerignore
-.git
+.git/
 .gitignore
+config.json
+song_list.json
+status_messages.json
+nohup.out
+start-bot.sh
+data/
+__pycache__/
+.vscode/
+.env
