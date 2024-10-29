@@ -29,10 +29,14 @@ jobs:
           mv config_db.json config/config.json
 
       - name: Create .env file
-        env:
-          ENV_CONTENT: ${{ secrets.PROD_ENV_FILE }}
-        run: echo ${ENV_CONTENT} > .env
-
+        uses: SpicyPizza/create-envfile@v2.0.3
+        with:
+          envkey_NODE_ENV: production
+          envkey_MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          envkey_MYSQL_USER: ${{ secrets.MYSQL_USER }}
+          envkey_MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          envkey_MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          
       - name: Down the former version of the bot
         run: |
           sudo docker compose logs -t >> ~/logs/lollipop.log
