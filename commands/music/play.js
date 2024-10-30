@@ -16,6 +16,7 @@ const { Music, MusicQueue } = require('../../models')
 var clientAvatar; // Avatar (profile picture) of the bot
 let nextResourceIsAvailable = true;
 const DELETE_REPLY_TIMEOUT = 5000;
+const DISCONNECTION_TIMEOUT = 300000
 
 module.exports = {
     category: 'music',
@@ -416,7 +417,10 @@ module.exports = {
                         } else {
                             statusMessageId = await setStatusMessage("Not currently playing", "waiting for new songs", clientAvatar, guildId, statusMessage, statusChannel);
                             newGuildData.statusMessageId = statusMessageId;
-
+                            setTimeout(() => {
+                                if(player.state.status !== AudioPlayerStatus.Idle) return;
+                                onDisconnect();
+                            }, DISCONNECTION_TIMEOUT);
                         }
                         db.updateGuildData(guildId, newGuildData);
                     }).catch(console.error);
