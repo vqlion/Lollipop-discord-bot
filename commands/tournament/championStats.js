@@ -22,7 +22,7 @@ module.exports = {
         await interaction.deferReply();
         const clientAvatar = interaction.client.user.avatarURL();
         const memberName = interaction.member.displayName;
-        const memberAvatar = interaction.member.user.avatarURL();
+        const memberAvatar = interaction.member.avatarURL() ?? interaction.member.user.avatarURL();
 
         const championName = interaction.options.getString("name");
         const leagueVersion = await getLeagueVersion();

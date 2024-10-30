@@ -37,7 +37,7 @@ module.exports = {
         const guildId = interaction.guildId;
         const channelList = Array.from(interaction.guild.channels.cache.values());
         const memberName = interaction.member.displayName;
-        const memberAvatar = interaction.member.user.avatarURL();
+        const memberAvatar = interaction.member.avatarURL() ?? interaction.member.user.avatarURL();
         clientAvatar = interaction.client.user.avatarURL();
 
         var guildData = await Music.findOne({ where: { guildId: guildId } });
