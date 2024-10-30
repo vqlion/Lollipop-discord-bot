@@ -14,7 +14,7 @@ module.exports = {
         await interaction.deferReply();
         const clientAvatar = interaction.client.user.avatarURL();
         const memberName = interaction.member.displayName;
-        const memberAvatar = interaction.member.user.avatarURL();
+        const memberAvatar = interaction.member.avatarURL() ?? interaction.member.user.avatarURL();
 
         const emojis = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟']
 

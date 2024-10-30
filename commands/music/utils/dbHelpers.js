@@ -15,7 +15,9 @@ module.exports = {
     deleteSongInQueue,
     getQueue,
     deleteQueue,
-    updateGuildData
+    updateGuildData,
+    shuffleQueue,
+    getQueueSize,
 }
 
 /**
@@ -160,6 +162,17 @@ function deleteQueue(guildId) {
     })
 }
 
+/**
+ * Updates the guild data in the database.
+ *
+ * @param {string} guildId - The ID of the guild to update.
+ * @param {Object} guildData - The data to update for the guild.
+ * @param {string} guildData.statusMessageId - The ID of the status message.
+ * @param {string} guildData.currentSong - The current song being played.
+ * @param {string} guildData.currentSongUrl - The URL of the current song.
+ * @param {string} guildData.currentSongAuthor - The author of the current song.
+ * @param {string} guildData.currentSongAuthorAvatar - The avatar of the current song's author.
+ */
 function updateGuildData(guildId, guildData) {
     db.transaction(t => {
         return Music.update(
@@ -172,6 +185,45 @@ function updateGuildData(guildId, guildData) {
             },
             {
                 where: { guildId: guildId }
+            },
+            {
+                transaction: t
             });
     })
+}
+
+async function shuffleQueue(guildId) {
+    db.transaction(async t => {
+        const songsInQueue = await MusicQueue.findAll({ where: { guildId: guildId } }, { transaction: t });
+        shuffle(songsInQueue);
+        await MusicQueue.destroy({ where: { guildId: guildId } }, { transaction: t })
+        const newQueue = songsInQueue.map((s => {
+            return {
+                guildId: s.guildId,
+                songName: s.songName,
+                songUrl: s.songUrl,
+                songAuthor: s.songAuthor,
+                songAuthorAvatar: s.songAuthorAvatar,
+            }
+        }));
+        await MusicQueue.bulkCreate(newQueue, { transaction: t });
+    })
+}
+
+function getQueueSize(guildId) {
+    return db.transaction(t => {
+        return MusicQueue.count({ where: { guildId: guildId } }, { transation: t });
+    })
+}
+
+/**
+ * Shuffles array in place.
+ * @param {Array} a items An array containing the items.
+ */
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
 }
