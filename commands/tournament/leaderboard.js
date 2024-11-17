@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { Summoner, Match } = require("../../models");
 const { Op } = require('sequelize');
 
-const MINIMUM_NUMBER_OF_GAMES = 3;
+const MINIMUM_NUMBER_OF_GAMES = 5;
 const LEADERBOARD_LENGTH = 10;
 
 module.exports = {
@@ -35,7 +35,7 @@ module.exports = {
 
         const messageEmbed = new EmbedBuilder()
             .setColor(0x0099FF)
-            .setTitle(`Leaderboard`)
+            .setTitle(`🏆 Leaderboard 🏆`)
             .setAuthor({ name: memberName, iconURL: memberAvatar })
             .setTimestamp()
             .setFooter({ text: 'Lollipop' + ` - ${totalMatches} games saved`, iconURL: clientAvatar });
