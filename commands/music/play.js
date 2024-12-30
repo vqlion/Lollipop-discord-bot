@@ -352,7 +352,7 @@ module.exports = {
 
         connection.on(
             VoiceConnectionStatus.Disconnected,
-            onDisconnect
+            connection.destroy
         );
 
         connection.on(
